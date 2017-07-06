@@ -12,8 +12,8 @@ from PIL import Image
 import pandas as pd
 import csv
 import os.path
-# import pytesseract
 import time
+import numpy as np
 
 class momoGet(object):
 
@@ -83,6 +83,7 @@ class momoGet(object):
 
 		height_sum = 0
 		r_sum, b_sum = 0, 0
+		brightness_sum = 0
 
 		for img in imgs:
 			imgsrc = img['src'].split('.jpg')[0] + '.jpg'
@@ -101,12 +102,35 @@ class momoGet(object):
 			width, height = image.size
 			height_sum += height
 
+			# 處理亮度
+			brightness_sum += self.get_brightness(image)
+
+		# 色溫
 		if r_sum > b_sum: temperature = 1
 		else: temperature = 0
 
+		# 平均亮度計算
+		brightness_avg = brightness_sum / len(imgs)
+		if brightness_avg > 127: brightness = 1
+		else: brightness = 0
+
 		print '圖片高度: ', height_sum
-		print '色溫', temperature
-		# return height_sum, temperature
+		print '色溫', temperature # 暖是1，暗是0
+		print '亮度', brightness # 亮是1，暗是0
+		# return height_sum, temperature, brightness
+
+	def get_brightness(self, img):
+		image_pixels = list()
+		width, height = img.size
+		pixels = img.load()
+		pixels_avg_list = list()
+		for w in range(width):
+			for h in range(height):
+				pixels_avg_list.append((pixels[w, h][0] + pixels[w, h][1] + pixels[w, h][2]) / int(3))
+		# print pixels_avg_list
+		pixels_avg_array = np.array(pixels_avg_list)
+		pix_mean = pixels_avg_array.mean()
+		return  pix_mean
 
 	def color_temp(self, img):
 		image_pixels = list()
@@ -144,5 +168,6 @@ class momoGet(object):
 		# print "The captcha is:%s" % number
 
 if __name__ == '__main__':
+	import sys
 	obj = momoGet()
-	obj.main("4655415")
+	obj.main(sys.argv[1])
