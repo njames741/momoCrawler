@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import requests
-import _uniout
 from bs4 import BeautifulSoup
 from pprint import pprint
 import re
@@ -12,8 +11,9 @@ from PIL import Image
 import pandas as pd
 import csv
 import os.path
-import pytesseract
+# import pytesseract
 import time
+import numpy as np
 
 class momoGet(object):
 
@@ -58,8 +58,6 @@ class momoGet(object):
 				paymentFeature.append(0)
 
 		print "payment",paymentFeature
-		# print payment[1].text
-		# print payment[2].text
 
 	def preferentialCount(self,soup):
 		preferential = soup.find('dl','preferential').findAll('dd')
@@ -67,25 +65,24 @@ class momoGet(object):
 		#   print i.text
 		print "preferentialCount: ", len(preferential)
 
-
 	def image_analysis(self, soup):
 		# vendordetailview 是整個「商品特色」頁面的標籤
 		vendordetailview = soup.find('div', class_='vendordetailview')
 		iframe = vendordetailview.find('iframe')
 		iframesrc = iframe['src']
-		print "iframesrc: ",iframesrc
 		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
-		print "iframe_web: ",iframe_web
-		# time.sleep(5)
-		iframe_requests = requests.get(iframe_web, headers=self.headers2, cookies=self.cookies2)
+		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
 		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
 
 		opener = urllib2.build_opener()
 		opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
 		imgs = iframe_soup.find_all('img')
+
 		height_sum = 0
+		r_sum, b_sum = 0, 0
+		brightness_sum = 0
+
 		for img in imgs:
-			# time.sleep(5)
 			imgsrc = img['src'].split('.jpg')[0] + '.jpg'
 			if imgsrc[:6] != 'https:':
 				imgsrc = 'https:' + imgsrc
@@ -93,10 +90,57 @@ class momoGet(object):
 			image_file = opener.open(imgsrc)
 			temp_image = cStringIO.StringIO(image_file.read())
 			image = Image.open(temp_image)
-			# image.show()
+
+			# 處理色溫
+			r_sum += self.color_temp(image)[0]
+			b_sum += self.color_temp(image)[2]
+
+			# 處理高度
 			width, height = image.size
 			height_sum += height
-		print height_sum
+
+			# 處理亮度
+			brightness_sum += self.get_brightness(image)
+
+		# 色溫
+		if r_sum > b_sum: temperature = 1
+		else: temperature = 0
+
+		# 平均亮度計算
+		brightness_avg = brightness_sum / len(imgs)
+		if brightness_avg > 127: brightness = 1
+		else: brightness = 0
+
+		print '圖片高度: ', height_sum
+		print '色溫', temperature # 暖是1，暗是0
+		print '亮度', brightness # 亮是1，暗是0
+		# return height_sum, temperature, brightness
+
+	def color_temp(self, img):
+		image_pixels = list()
+		width, height = img.size
+		pixels = img.load()
+		pixels_sum = [0, 0, 0]
+		RGB_value = [0, 0, 0]
+		for w in range(width):
+			for h in range(height):
+				RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
+				for x in range(3):
+					pixels_sum[x] += RGB_value[x]
+		return pixels_sum
+
+	def get_brightness(self, img):
+		image_pixels = list()
+		width, height = img.size
+		pixels = img.load()
+		pixels_avg_list = list()
+		for w in range(width):
+			for h in range(height):
+				pixels_avg_list.append((pixels[w, h][0] + pixels[w, h][1] + pixels[w, h][2]) / int(3))
+		# print pixels_avg_list
+		pixels_avg_array = np.array(pixels_avg_list)
+		pix_mean = pixels_avg_array.mean()
+		return  pix_mean
 
 	def main(self,goods_icode):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
@@ -114,5 +158,10 @@ class momoGet(object):
 		# print "The captcha is:%s" % number
 
 if __name__ == '__main__':
+	import sys
 	obj = momoGet()
-	obj.main("4856789")
+	obj.main(sys.argv[1])
+	# image = Image.open('./warm1.jpg')
+	# obj.get_brightness(image)
+
+
