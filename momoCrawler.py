@@ -12,7 +12,7 @@ from PIL import Image
 import pandas as pd
 import csv
 import os.path
-import pytesseract
+# import pytesseract
 import time
 
 class momoGet(object):
@@ -73,19 +73,18 @@ class momoGet(object):
 		vendordetailview = soup.find('div', class_='vendordetailview')
 		iframe = vendordetailview.find('iframe')
 		iframesrc = iframe['src']
-		print "iframesrc: ",iframesrc
 		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
-		print "iframe_web: ",iframe_web
-		# time.sleep(5)
-		iframe_requests = requests.get(iframe_web, headers=self.headers2, cookies=self.cookies2)
+		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
 		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
 
 		opener = urllib2.build_opener()
 		opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
 		imgs = iframe_soup.find_all('img')
+
 		height_sum = 0
+		r_sum, b_sum = 0, 0
+
 		for img in imgs:
-			# time.sleep(5)
 			imgsrc = img['src'].split('.jpg')[0] + '.jpg'
 			if imgsrc[:6] != 'https:':
 				imgsrc = 'https:' + imgsrc
@@ -93,10 +92,41 @@ class momoGet(object):
 			image_file = opener.open(imgsrc)
 			temp_image = cStringIO.StringIO(image_file.read())
 			image = Image.open(temp_image)
-			# image.show()
+
+			# 處理色溫
+			r_sum += self.color_temp(image)[0]
+			b_sum += self.color_temp(image)[2]
+
+			# 處理高度
 			width, height = image.size
 			height_sum += height
-		print height_sum
+
+		if r_sum > b_sum: temperature = 1
+		else: temperature = 0
+
+		print '圖片高度: ', height_sum
+		print '色溫', temperature
+		# return height_sum, temperature
+
+	def color_temp(self, img):
+		image_pixels = list()
+		width, height = img.size
+		pixels = img.load()
+		pixels_sum = [0, 0, 0]
+		RGB_value = [0, 0, 0]
+		for w in range(width):
+			for h in range(height):
+				RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
+				for x in range(3):
+					pixels_sum[x] += RGB_value[x]
+		return pixels_sum
+
+	def reciprocal(self, img):
+		try:
+			reciprocal = soup.find('dl','preferential').findAll('dd').text
+			print "reciprocal: ",0
+		except:
+			print "reciprocal: ",1
 
 	def main(self,goods_icode):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
@@ -107,7 +137,7 @@ class momoGet(object):
 		self.payment(soup)
 		self.preferentialCount(soup)
 		self.image_analysis(soup)
-
+		self.reciprocal(soup)
 
 		# image = Image.open('/home/nj/workspace/momo/image1.jpg')
 		# number = pytesseract.image_to_string(image,lang ='chi_tra')
@@ -115,4 +145,4 @@ class momoGet(object):
 
 if __name__ == '__main__':
 	obj = momoGet()
-	obj.main("4856789")
+	obj.main("4655415")
