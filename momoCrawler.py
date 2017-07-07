@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 import requests
-import _uniout
 from bs4 import BeautifulSoup
 from pprint import pprint
 import re
@@ -15,8 +13,19 @@ import os.path
 import time
 import numpy as np
 
-class momoGet(object):
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
 
+        print '執行 %r 函式，共花 %2.2f sec' % \
+              (method.__name__, te-ts)
+        return result
+
+    return timed
+
+class momo(object):
 	def __init__(self):
 		self.headers = {
 			'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.107 Safari/537.36',
@@ -30,6 +39,7 @@ class momoGet(object):
 		self.cookies2 = {
 			'_ts_id': '888888888888888888',
 		}
+		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', 'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', 'preferential_count', 'reciprocal', 'img_height', 'img_tmp', 'img_brightness'))
 
 	def price(self,soup):
 		try:
@@ -37,15 +47,18 @@ class momoGet(object):
 		except:
 			price = soup.find('ul' ,'prdPrice').find('li').find('del').text
 		price = price.replace(",","")
-		print "price: ",int(price)
+		# print "price: ",int(price)
+		return int(price)
 
 	def discount(self,soup):
 		try:
 			OldPrice = soup.find('ul' ,'prdPrice').find('li').find('del').text.replace(",","")
 			NewPrice = soup.find('li','special').find('span').text.replace(",","")
-			print "discount: ",int(OldPrice) - int(NewPrice)
+			# print "discount: ",int(OldPrice) - int(NewPrice)
+			return (int(OldPrice) - int(NewPrice))
 		except:
-			print "discount: ",0
+			# print "discount: ",0
+			return 0
 
 	def payment(self,soup):
 		paymentList = [u'信用卡',u'貨到付款', u'超商付款', u'ATM', u'iBon']
@@ -56,18 +69,20 @@ class momoGet(object):
 				paymentFeature.append(1)
 			else:
 				paymentFeature.append(0)
-
-		print "payment",paymentFeature
-		# print payment[1].text
-		# print payment[2].text
+		# print "payment",paymentFeature
+		return paymentFeature
 
 	def preferentialCount(self,soup):
-		preferential = soup.find('dl','preferential').findAll('dd')
+		try:
+			preferential = soup.find('dl','preferential').findAll('dd')
+			return len(preferential)
+		except:
+			return 0
 		# for i in preferential:
 		#   print i.text
-		print "preferentialCount: ", len(preferential)
+		# print "preferentialCount: ", len(preferential)
 
-
+	@timeit
 	def image_analysis(self, soup):
 		# vendordetailview 是整個「商品特色」頁面的標籤
 		vendordetailview = soup.find('div', class_='vendordetailview')
@@ -81,6 +96,9 @@ class momoGet(object):
 		opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
 		imgs = iframe_soup.find_all('img')
 
+		if len(imgs) == 0:
+			return 'No Image', 'No Image', 'No Image'
+
 		height_sum = 0
 		r_sum, b_sum = 0, 0
 		brightness_sum = 0
@@ -89,7 +107,7 @@ class momoGet(object):
 			imgsrc = img['src'].split('.jpg')[0] + '.jpg'
 			if imgsrc[:6] != 'https:':
 				imgsrc = 'https:' + imgsrc
-			print imgsrc
+			# print imgsrc
 			image_file = opener.open(imgsrc)
 			temp_image = cStringIO.StringIO(image_file.read())
 			image = Image.open(temp_image)
@@ -114,10 +132,10 @@ class momoGet(object):
 		if brightness_avg > 127: brightness = 1
 		else: brightness = 0
 
-		print '圖片高度: ', height_sum
-		print '色溫', temperature # 暖是1，暗是0
-		print '亮度', brightness # 亮是1，暗是0
-		# return height_sum, temperature, brightness
+		# print '圖片高度: ', height_sum
+		# print '色溫', temperature # 暖是1，暗是0
+		# print '亮度', brightness # 亮是1，暗是0
+		return height_sum, temperature, brightness
 
 	def get_brightness(self, img):
 		image_pixels = list()
@@ -148,26 +166,59 @@ class momoGet(object):
 	def reciprocal(self, img):
 		try:
 			reciprocal = soup.find('dl','preferential').findAll('dd').text
-			print "reciprocal: ",0
+			# print "reciprocal: ",0
+			return 0
 		except:
-			print "reciprocal: ",1
-
-	def main(self,goods_icode):
+			# print "reciprocal: ",1
+			return 1
+	
+	@timeit
+	def get_rows(self,goods_icode):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
 		h = requests.get(web, headers=self.headers, cookies=self.cookies)
 		soup = BeautifulSoup(h.text, 'lxml')
-		self.price(soup)
-		self.discount(soup)
-		self.payment(soup)
-		self.preferentialCount(soup)
-		self.image_analysis(soup)
-		self.reciprocal(soup)
 
-		# image = Image.open('/home/nj/workspace/momo/image1.jpg')
-		# number = pytesseract.image_to_string(image,lang ='chi_tra')
-		# print "The captcha is:%s" % number
+		row_list = list()
+		row_list.append(goods_icode)
+		row_list.append(self.price(soup))
+		row_list.append(self.discount(soup))
+		row_list += self.payment(soup)
+		row_list.append(self.preferentialCount(soup))
+		row_list.append(self.reciprocal(soup))
+		img_result_list = self.image_analysis(soup)
+		row_list.append(img_result_list[0])
+		row_list.append(img_result_list[1])
+		row_list.append(img_result_list[2])
+		return row_list
+
+	def create_csv(self):
+		# print self.result_df
+		gid_list = pd.read_csv('./data.csv').values
+		# pprint(gid_list)
+		requests_count = 0
+		row_index = 0
+		abandoned = 0
+		for row in gid_list:
+			requests_count += 1
+			if requests_count == 2: break
+			# print str(row[0])
+			try:
+				self.result_df.loc[row_index] = self.get_rows(str(row[0]))
+				row_index += 1
+			except:
+				abandoned += 1
+				print '商品已下架，或無此頁面。'
+				continue
+			print '總requests數: ', requests_count
+
+		# print self.result_df
+		print '無頁面總數量: ', abandoned
+		self.result_df.to_csv('./result.csv', index=False)
+
+
 
 if __name__ == '__main__':
 	import sys
-	obj = momoGet()
-	obj.main(sys.argv[1])
+	obj = momo()
+	obj.create_csv()
+	# obj.get_rows(sys.argv[1])
