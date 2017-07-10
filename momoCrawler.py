@@ -14,16 +14,16 @@ import time
 import numpy as np
 
 def timeit(method):
-    def timed(*args, **kw):
-        ts = time.time()
-        result = method(*args, **kw)
-        te = time.time()
+	def timed(*args, **kw):
+		ts = time.time()
+		result = method(*args, **kw)
+		te = time.time()
 
-        print '執行 %r 函式，共花 %2.2f sec' % \
-              (method.__name__, te-ts)
-        return result
+		print '執行 %r 函式，共花 %2.2f sec' % \
+			  (method.__name__, te-ts)
+		return result
 
-    return timed
+	return timed
 
 class momo(object):
 	def __init__(self):
@@ -89,6 +89,8 @@ class momo(object):
 		iframe = vendordetailview.find('iframe')
 		iframesrc = iframe['src']
 		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
+
+		time.sleep(3)
 		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
 		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
 
@@ -167,14 +169,15 @@ class momo(object):
 		try:
 			reciprocal = soup.find('dl','preferential').findAll('dd').text
 			# print "reciprocal: ",0
-			return 0
+			return 1
 		except:
 			# print "reciprocal: ",1
-			return 1
+			return 0
 	
 	@timeit
 	def get_rows(self,goods_icode):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
+		time.sleep(3)
 		h = requests.get(web, headers=self.headers, cookies=self.cookies)
 		soup = BeautifulSoup(h.text, 'lxml')
 
@@ -193,17 +196,17 @@ class momo(object):
 
 	def create_csv(self):
 		# print self.result_df
-		gid_list = pd.read_csv('./data.csv').values
+		gid_list = pd.read_csv('./momo_dir/GidList.csv').values
 		# pprint(gid_list)
 		requests_count = 0
 		row_index = 0
 		abandoned = 0
 		for row in gid_list:
 			requests_count += 1
-			if requests_count == 2: break
+			if requests_count == 20: break
 			# print str(row[0])
 			try:
-				self.result_df.loc[row_index] = self.get_rows(str(row[0]))
+				self.result_df.loc[row_index] = self.get_rows(str(row))
 				row_index += 1
 			except:
 				abandoned += 1
