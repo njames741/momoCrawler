@@ -39,8 +39,9 @@ class momo(object):
 		self.cookies2 = {
 			'_ts_id': '888888888888888888',
 		}
-		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', 'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', 'preferential_count', 'reciprocal', 'img_height', 'img_tmp', 'img_brightness'))
+		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', 'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', 'preferential_count', 'reciprocal', 'img_height', 'img_tmp', 'img_brightness', 'label'))
 
+	# 價錢
 	def price(self,soup):
 		try:
 			price = soup.find('li','special').find('span').text
@@ -50,6 +51,7 @@ class momo(object):
 		# print "price: ",int(price)
 		return int(price)
 
+	# 折扣
 	def discount(self,soup):
 		try:
 			OldPrice = soup.find('ul' ,'prdPrice').find('li').find('del').text.replace(",","")
@@ -60,6 +62,7 @@ class momo(object):
 			# print "discount: ",0
 			return 0
 
+	# 付款方式(one hot)
 	def payment(self,soup):
 		paymentList = [u'信用卡',u'貨到付款', u'超商付款', u'ATM', u'iBon']
 		paymentFeature = list()
@@ -72,15 +75,21 @@ class momo(object):
 		# print "payment",paymentFeature
 		return paymentFeature
 
+	# 贈品(數量)
 	def preferentialCount(self,soup):
 		try:
 			preferential = soup.find('dl','preferential').findAll('dd')
 			return len(preferential)
 		except:
 			return 0
-		# for i in preferential:
-		#   print i.text
-		# print "preferentialCount: ", len(preferential)
+
+	# 庫存倒數
+	def reciprocal(self,soup):
+		reciprocal = soup.select('#goodsDtCount_001')[0]['value']
+		if int(reciprocal) <= 5:
+			return 1
+		else:
+			return 0
 
 	@timeit
 	def image_analysis(self, soup):
@@ -106,11 +115,19 @@ class momo(object):
 		brightness_sum = 0
 
 		for img in imgs:
-			imgsrc = img['src'].split('.jpg')[0] + '.jpg'
+			imgsrc = img['src'].split('?')[0]
 			if imgsrc[:6] != 'https:':
-				imgsrc = 'https:' + imgsrc
-			# print imgsrc
-			image_file = opener.open(imgsrc)
+				imgsrc = 'https://www.momoshop.com.tw' + imgsrc
+			# if img[8:11]
+			if imgsrc[8:12] == 'img1' or imgsrc[8:12] == 'img2':
+				imgsrc = 'https://img3' + imgsrc[12:]
+			# imgsrc = 'img3' + imgsrc[0:]
+			try:
+				image_file = opener.open(imgsrc)
+				print imgsrc
+			except:
+				print '==============img url錯誤===================='
+				print imgsrc
 			temp_image = cStringIO.StringIO(image_file.read())
 			image = Image.open(temp_image)
 
@@ -164,22 +181,13 @@ class momo(object):
 				for x in range(3):
 					pixels_sum[x] += RGB_value[x]
 		return pixels_sum
-
-	def reciprocal(self, img):
-		try:
-			reciprocal = soup.find('dl','preferential').findAll('dd').text
-			# print "reciprocal: ",0
-			return 1
-		except:
-			# print "reciprocal: ",1
-			return 0
 	
 	@timeit
-	def get_rows(self,goods_icode):
+	def get_rows(self, goods_icode, label):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
 		time.sleep(3)
 		h = requests.get(web, headers=self.headers, cookies=self.cookies)
-		soup = BeautifulSoup(h.text, 'lxml')
+		soup = BeautifulSoup(h.text, 'html.parser')
 
 		row_list = list()
 		row_list.append(goods_icode)
@@ -192,36 +200,56 @@ class momo(object):
 		row_list.append(img_result_list[0])
 		row_list.append(img_result_list[1])
 		row_list.append(img_result_list[2])
+		row_list.append(label)
 		return row_list
 
 	def create_csv(self):
-		# print self.result_df
-		gid_list = pd.read_csv('./momo_dir/GidList.csv').values
-		# pprint(gid_list)
+		gid_list = pd.read_csv('./data_diamond_with_label.csv').values
 		requests_count = 0
 		row_index = 0
 		abandoned = 0
 		for row in gid_list:
+			print '---------------------------'
 			requests_count += 1
-			if requests_count == 20: break
-			# print str(row[0])
+			# if requests_count == 11: break
+			print str(int(row[0])), row[1]
 			try:
-				self.result_df.loc[row_index] = self.get_rows(str(row))
+				self.result_df.loc[row_index] = self.get_rows(str(int(row[0])), row[1])
 				row_index += 1
+				print '已requests數: ', requests_count
 			except:
 				abandoned += 1
-				print '商品已下架，或無此頁面。'
+				print '>>>Error<<<'
+				print '已requests數: ', requests_count
 				continue
-			print '總requests數: ', requests_count
 
-		# print self.result_df
 		print '無頁面總數量: ', abandoned
-		self.result_df.to_csv('./result.csv', index=False)
+		self.result_df.to_csv('./result_jewelry_3264.csv', index=False)
+
+	def testing(self):
+		# gid_label_list = pd.read_csv('data_diamond_with_label.csv').values
+		# pprint(gid_label_list)
+		# for row in gid_label_list:
+			# print str(int(row[0])), row[1]
+			# print self.get_rows(str(int(row[0])), row[1])
+		string = '3189401'
+		print self.get_rows(string, 0.344444)
+			# break
+
 
 
 
 if __name__ == '__main__':
+	import time
 	import sys
 	obj = momo()
+
+	start = time.time()
 	obj.create_csv()
+	end = time.time()
+
+	time_cost = end - start
+	print "總花費時間", time_cost, "秒"
 	# obj.get_rows(sys.argv[1])
+	# obj = momo()
+	# obj.testing()
