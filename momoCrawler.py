@@ -39,7 +39,9 @@ class momo(object):
 		self.cookies2 = {
 			'_ts_id': '888888888888888888',
 		}
-		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', 'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', 'preferential_count', 'reciprocal', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', 'label'))
+		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', 'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', 'preferential_count', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', '12H', 'shopcart', 'superstore', 'productFormatCount', 'attributesListArea', 'label'))
+
+
 
 	# 價錢
 	def price(self,soup):
@@ -180,6 +182,44 @@ class momo(object):
 				for x in range(3):
 					pixels_sum[x] += RGB_value[x]
 		return pixels_sum
+
+	#配送方式
+	def transport(self,soup):
+		transportList = [] 
+		first = soup.select('#first')
+		if first != []:
+			transportList.append(1)
+		else:
+			transportList.append(0)
+
+		shopcart = soup.select('#shopcart')
+		if shopcart != []:
+			transportList.append(1)
+		else:
+			transportList.append(0)
+
+		superstore = soup.select('#superstore')
+		if shopcart != []:
+			transportList.append(1)
+		else:
+			transportList.append(0)
+
+		return transportList
+
+	def productFormatCount(self,soup):
+		productFormat = soup.find('select','CompareSel')
+		productFormatList = productFormat.findAll('option')
+		productFormatListLen = len(productFormatList)
+		if productFormatListLen > 1:
+			productFormatListLen = productFormatListLen-1
+		return productFormatListLen
+
+	def attributesListArea(self,soup):
+		ListArea = soup.find('div','attributesListArea')
+		if ListArea != None:
+			return 1
+		else:
+			return 0
 	
 	@timeit
 	def get_rows(self, goods_icode, label):
@@ -194,36 +234,42 @@ class momo(object):
 		row_list.append(self.discount(soup))
 		row_list += self.payment(soup)
 		row_list.append(self.preferentialCount(soup))
-		row_list.append(self.reciprocal(soup))
+		# row_list.append(self.reciprocal(soup))
 		img_result_list = self.image_analysis(soup)
 		row_list.append(img_result_list[0])
 		row_list += img_result_list[1]
 		row_list += img_result_list[2]
+		
+		row_list += self.transport(soup)
+		row_list.append(self.productFormatCount(soup))
+		row_list.append(self.attributesListArea(soup))
 		row_list.append(label)
+		print row_list
 		return row_list
 
 	def create_csv(self):
-		gid_list = pd.read_csv('./data_diamond_with_label.csv').values
+		gid_list = pd.read_csv('./girlshoes7899.csv').values
 		requests_count = 0
 		row_index = 0
 		abandoned = 0
 		for row in gid_list:
 			print '---------------------------'
 			requests_count += 1
-			if requests_count == 2: break
+			if requests_count == 15: break
 			print str(int(row[0])), row[1]
 			try:
 				self.result_df.loc[row_index] = self.get_rows(str(int(row[0])), row[1])
 				row_index += 1
 				print '已requests數: ', requests_count
-			except:
+			except Exception, e:
 				abandoned += 1
 				print '爬不到，抱歉'
 				print '已requests數: ', requests_count
+				print e
 				continue
 
 		print '爬不到的頁面總數量: ', abandoned
-		self.result_df.to_csv('./result_jewelry_3264.csv', index=False)
+		self.result_df.to_csv('./result_girlshoes_7899.csv', index=False)
 
 	def testing(self):
 		# gid_label_list = pd.read_csv('data_diamond_with_label.csv').values
@@ -248,6 +294,6 @@ if __name__ == '__main__':
 
 	time_cost = end - start
 	print "總花費時間", time_cost, "秒"
-	# obj.get_rows(sys.argv[1])
+	# print obj.get_rows(sys.argv[1],"theshaneyu")
 	# obj = momo()
 	# obj.testing()
