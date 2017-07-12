@@ -39,7 +39,7 @@ class momo(object):
 		self.cookies2 = {
 			'_ts_id': '888888888888888888',
 		}
-		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', 'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', 'preferential_count', 'reciprocal', 'img_height', 'img_tmp', 'img_brightness', 'label'))
+		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', 'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', 'preferential_count', 'reciprocal', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', 'label'))
 
 	# 價錢
 	def price(self,soup):
@@ -118,10 +118,10 @@ class momo(object):
 			imgsrc = img['src'].split('?')[0]
 			if imgsrc[:6] != 'https:':
 				imgsrc = 'https://www.momoshop.com.tw' + imgsrc
-			# if img[8:11]
+
 			if imgsrc[8:12] == 'img1' or imgsrc[8:12] == 'img2':
 				imgsrc = 'https://img3' + imgsrc[12:]
-			# imgsrc = 'img3' + imgsrc[0:]
+
 			try:
 				image_file = opener.open(imgsrc)
 				print imgsrc
@@ -143,18 +143,18 @@ class momo(object):
 			brightness_sum += self.get_brightness(image)
 
 		# 色溫
-		if r_sum > b_sum: temperature = 1
-		else: temperature = 0
+		if r_sum > b_sum: temp_list = [1, 0]
+		else: temp_list = [0, 1]
 
 		# 平均亮度計算
 		brightness_avg = brightness_sum / len(imgs)
-		if brightness_avg > 127: brightness = 1
-		else: brightness = 0
+		if brightness_avg > 127: brightness_list = [1, 0]
+		else: brightness_list = [0, 1]
 
 		# print '圖片高度: ', height_sum
 		# print '色溫', temperature # 暖是1，暗是0
 		# print '亮度', brightness # 亮是1，暗是0
-		return height_sum, temperature, brightness
+		return height_sum, temp_list, brightness_list
 
 	def get_brightness(self, img):
 		image_pixels = list()
@@ -164,7 +164,6 @@ class momo(object):
 		for w in range(width):
 			for h in range(height):
 				pixels_avg_list.append((pixels[w, h][0] + pixels[w, h][1] + pixels[w, h][2]) / int(3))
-		# print pixels_avg_list
 		pixels_avg_array = np.array(pixels_avg_list)
 		pix_mean = pixels_avg_array.mean()
 		return  pix_mean
@@ -198,8 +197,8 @@ class momo(object):
 		row_list.append(self.reciprocal(soup))
 		img_result_list = self.image_analysis(soup)
 		row_list.append(img_result_list[0])
-		row_list.append(img_result_list[1])
-		row_list.append(img_result_list[2])
+		row_list += img_result_list[1]
+		row_list += img_result_list[2]
 		row_list.append(label)
 		return row_list
 
@@ -211,7 +210,7 @@ class momo(object):
 		for row in gid_list:
 			print '---------------------------'
 			requests_count += 1
-			# if requests_count == 11: break
+			if requests_count == 2: break
 			print str(int(row[0])), row[1]
 			try:
 				self.result_df.loc[row_index] = self.get_rows(str(int(row[0])), row[1])
@@ -219,11 +218,11 @@ class momo(object):
 				print '已requests數: ', requests_count
 			except:
 				abandoned += 1
-				print '>>>Error<<<'
+				print '爬不到，抱歉'
 				print '已requests數: ', requests_count
 				continue
 
-		print '無頁面總數量: ', abandoned
+		print '爬不到的頁面總數量: ', abandoned
 		self.result_df.to_csv('./result_jewelry_3264.csv', index=False)
 
 	def testing(self):
@@ -232,11 +231,10 @@ class momo(object):
 		# for row in gid_label_list:
 			# print str(int(row[0])), row[1]
 			# print self.get_rows(str(int(row[0])), row[1])
-		string = '3189401'
-		print self.get_rows(string, 0.344444)
+		# string = '3189401'
+		# print self.get_rows(string, 0.344444)
 			# break
-
-
+		print self.result_df.columns
 
 
 if __name__ == '__main__':
