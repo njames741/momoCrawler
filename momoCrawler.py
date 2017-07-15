@@ -257,7 +257,7 @@ class momo(object):
 			print '---------------------------'
 			requests_count += 1
 			successful += 1
-			if requests_count == 10: break
+			# if requests_count == 10: break
 			print str(int(row[0])), row[1]
 			try:
 				self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[1])
