@@ -267,7 +267,7 @@ class momo(object):
 				else:
 					self.result_df.to_csv('./result_girlshoes_7899.csv', mode='a', index=False, header=False)
 				print '已requests數: ', str(requests_count)+'/7899'
-				print '已有資料筆數', len(self.result_df.index)
+				print '已有資料筆數: ', self.result_df.shape[0]
 
 			except Exception, e:
 				abandoned += 1
