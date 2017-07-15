@@ -13,6 +13,7 @@ import os.path
 import time
 import numpy as np
 
+
 def timeit(method):
 	def timed(*args, **kw):
 		ts = time.time()
@@ -24,6 +25,7 @@ def timeit(method):
 		return result
 
 	return timed
+
 
 class momo(object):
 	def __init__(self):
@@ -101,7 +103,7 @@ class momo(object):
 		iframesrc = iframe['src']
 		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
 
-		time.sleep(3)
+		# time.sleep(3)
 		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
 		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
 
@@ -224,7 +226,7 @@ class momo(object):
 	@timeit
 	def get_rows(self, goods_icode, label):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
-		time.sleep(3)
+		# time.sleep(3)
 		h = requests.get(web, headers=self.headers, cookies=self.cookies)
 		soup = BeautifulSoup(h.text, 'html.parser')
 
@@ -250,37 +252,31 @@ class momo(object):
 	def create_csv(self):
 		gid_list = pd.read_csv('./girlshoes7899.csv').values
 		requests_count = 0
-		row_index = 0
 		abandoned = 0
+		first_write = True
 		for row in gid_list:
 			print '---------------------------'
 			requests_count += 1
-			if requests_count == 15: break
+			if requests_count == 10: break
 			print str(int(row[0])), row[1]
 			try:
-				self.result_df.loc[row_index] = self.get_rows(str(int(row[0])), row[1])
-				row_index += 1
-				print '已requests數: ', requests_count
+				self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[1])
+				if first_write:
+					self.result_df.to_csv('./result_girlshoes_7899.csv', mode='a', index=False)
+					first_write = False
+				else:
+					self.result_df.to_csv('./result_girlshoes_7899.csv', mode='a', index=False, header=False)
+				print '已requests數: ', str(requests_count)+'/7899'
+				print '已有資料筆數', len(self.result_df.index)
+
 			except Exception, e:
 				abandoned += 1
 				print '爬不到，抱歉'
-				print '已requests數: ', requests_count
 				print e
+				print '已requests數: ', requests_count
 				continue
 
-		print '爬不到的頁面總數量: ', abandoned
-		self.result_df.to_csv('./result_girlshoes_7899.csv', index=False)
-
-	def testing(self):
-		# gid_label_list = pd.read_csv('data_diamond_with_label.csv').values
-		# pprint(gid_label_list)
-		# for row in gid_label_list:
-			# print str(int(row[0])), row[1]
-			# print self.get_rows(str(int(row[0])), row[1])
-		# string = '3189401'
-		# print self.get_rows(string, 0.344444)
-			# break
-		print self.result_df.columns
+		print '爬不到的頁面總數量: ', abandoned		
 
 
 if __name__ == '__main__':
@@ -295,5 +291,3 @@ if __name__ == '__main__':
 	time_cost = end - start
 	print "總花費時間", time_cost, "秒"
 	# print obj.get_rows(sys.argv[1],"theshaneyu")
-	# obj = momo()
-	# obj.testing()
