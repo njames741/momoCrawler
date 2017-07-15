@@ -19,11 +19,8 @@ def timeit(method):
 		ts = time.time()
 		result = method(*args, **kw)
 		te = time.time()
-
-		print '執行 %r 函式，共花 %2.2f sec' % \
-			  (method.__name__, te-ts)
+		print '執行 %r 函式，共花 %2.2f sec' % (method.__name__, te-ts)
 		return result
-
 	return timed
 
 
@@ -208,6 +205,7 @@ class momo(object):
 
 		return transportList
 
+	# 有的尺寸數量
 	def productFormatCount(self,soup):
 		productFormat = soup.find('select','CompareSel')
 		productFormatList = productFormat.findAll('option')
@@ -252,11 +250,13 @@ class momo(object):
 	def create_csv(self):
 		gid_list = pd.read_csv('./girlshoes7899.csv').values
 		requests_count = 0
+		successful = 0
 		abandoned = 0
 		first_write = True
 		for row in gid_list:
 			print '---------------------------'
 			requests_count += 1
+			successful += 1
 			if requests_count == 10: break
 			print str(int(row[0])), row[1]
 			try:
@@ -281,7 +281,7 @@ class momo(object):
 
 if __name__ == '__main__':
 	import time
-	import sys
+	# import sys
 	obj = momo()
 
 	start = time.time()
