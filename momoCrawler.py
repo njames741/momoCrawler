@@ -273,7 +273,7 @@ class momo(object):
 				abandoned += 1
 				print '爬不到，抱歉'
 				print e
-				print '已requests數: ', requests_count
+				print '已requests數: ', str(requests_count)+'/7899'
 				continue
 
 		print '爬不到的頁面總數量: ', abandoned		
