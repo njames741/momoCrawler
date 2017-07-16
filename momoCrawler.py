@@ -256,7 +256,6 @@ class momo(object):
 		for row in gid_list:
 			print '---------------------------'
 			requests_count += 1
-			successful += 1
 			# if requests_count == 10: break
 			print str(int(row[0])), row[1]
 			try:
@@ -266,8 +265,9 @@ class momo(object):
 					first_write = False
 				else:
 					self.result_df.to_csv('./result_girlshoes_7899.csv', mode='a', index=False, header=False)
+				successful += 1
 				print '已requests數: ', str(requests_count)+'/7899'
-				print '已有資料筆數: ', self.result_df.shape[0]
+				print '已有資料筆數: ', successful
 
 			except Exception, e:
 				abandoned += 1
