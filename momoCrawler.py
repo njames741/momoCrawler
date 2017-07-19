@@ -24,8 +24,12 @@ def timeit(method):
 	return timed
 
 
+class SystemInputError(Exception):
+    pass
+
+
 class momo(object):
-	def __init__(self):
+	def __init__(self, status):
 		self.headers = {
 			'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.107 Safari/537.36',
 		}
@@ -39,8 +43,12 @@ class momo(object):
 			'_ts_id': '888888888888888888',
 		}
 		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', 'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', 'preferential_count', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', '12H', 'shopcart', 'superstore', 'productFormatCount', 'attributesListArea', 'label'))
-
-
+		if status == 'c':
+			self.with_header = False
+		elif status == 'i':
+			self.with_header = True
+		else:
+			raise SystemInputError('系統參數請輸入: c -> 續寫, i -> 從頭開始執行')
 
 	# 價錢
 	def price(self,soup):
@@ -224,7 +232,7 @@ class momo(object):
 	@timeit
 	def get_rows(self, goods_icode, label):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
-		# time.sleep(3)
+		time.sleep(1)
 		h = requests.get(web, headers=self.headers, cookies=self.cookies)
 		soup = BeautifulSoup(h.text, 'html.parser')
 
@@ -260,9 +268,10 @@ class momo(object):
 			print str(int(row[0])), row[1]
 			try:
 				self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[1])
-				if first_write:
+				if first_write and self.with_header:
 					self.result_df.to_csv('./result_girlshoes_7899.csv', mode='a', index=False)
 					first_write = False
+					self.with_header = False
 				else:
 					self.result_df.to_csv('./result_girlshoes_7899.csv', mode='a', index=False, header=False)
 				successful += 1
@@ -274,6 +283,7 @@ class momo(object):
 				print '爬不到，抱歉'
 				print e
 				print '已requests數: ', str(requests_count)+'/7899'
+				print '已有資料筆數: ', successful
 				continue
 
 		print '爬不到的頁面總數量: ', abandoned		
@@ -281,8 +291,10 @@ class momo(object):
 
 if __name__ == '__main__':
 	import time
-	# import sys
-	obj = momo()
+	import sys
+	# 如果是從某個GID開始續寫，輸入小寫c
+	# 如果是從頭開始跑，輸入小寫i
+	obj = momo(sys.argv[1])
 
 	start = time.time()
 	obj.create_csv()
@@ -290,4 +302,3 @@ if __name__ == '__main__':
 
 	time_cost = end - start
 	print "總花費時間", time_cost, "秒"
-	# print obj.get_rows(sys.argv[1],"theshaneyu")
