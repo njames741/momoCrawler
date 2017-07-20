@@ -23,10 +23,8 @@ def timeit(method):
 		return result
 	return timed
 
-
 class SystemInputError(Exception):
     pass
-
 
 class momo(object):
 	def __init__(self, status):
@@ -144,8 +142,9 @@ class momo(object):
 			image = Image.open(temp_image)
 
 			# 處理色溫
-			r_sum += self.color_temp(image)[0]
-			b_sum += self.color_temp(image)[2]
+			rgb_sum_list = self.color_temp(image)
+			r_sum += rgb_sum_list[0]
+			b_sum += rgb_sum_list[2]
 
 			# 處理高度
 			width, height = image.size
@@ -169,7 +168,6 @@ class momo(object):
 		return height_sum, temp_list, brightness_list
 
 	def get_brightness(self, img):
-		image_pixels = list()
 		width, height = img.size
 		pixels = img.load()
 		pixels_avg_list = list()
@@ -181,19 +179,30 @@ class momo(object):
 		return  pix_mean
 
 	def color_temp(self, img):
-		image_pixels = list()
+		img_format = img.format
+		# print img_format
 		width, height = img.size
 		pixels = img.load()
+		channel_length = len(pixels[0, 0])
 		pixels_sum = [0, 0, 0]
 		RGB_value = [0, 0, 0]
 		for w in range(width):
 			for h in range(height):
-				RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
+				if channel_length == 3:
+					RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
+				elif channel_length == 4:
+					RGB_value = self.deal_with_RGBA_image(pixels[w, h])
 				for x in range(3):
 					pixels_sum[x] += RGB_value[x]
 		return pixels_sum
 
-	#配送方式
+	# 處理png圖片
+	def deal_with_RGBA_image(self, RGBA_tuple):
+		RGBA_list = [0, 0, 0, 0]
+		RGBA_list[0], RGBA_list[1], RGBA_list[2], RGBA_list[3] = RGBA_tuple
+		return RGBA_list[:3]
+
+	# 配送方式
 	def transport(self,soup):
 		transportList = [] 
 		first = soup.select('#first')
@@ -217,7 +226,7 @@ class momo(object):
 		return transportList
 
 	# 有的尺寸數量
-	def productFormatCount(self,soup):
+	def productFormatCount(self, soup):
 		productFormat = soup.find('select','CompareSel')
 		productFormatList = productFormat.findAll('option')
 		productFormatListLen = len(productFormatList)
@@ -225,7 +234,7 @@ class momo(object):
 			productFormatListLen = productFormatListLen-1
 		return productFormatListLen
 
-	def attributesListArea(self,soup):
+	def attributesListArea(self, soup):
 		ListArea = soup.find('div','attributesListArea')
 		if ListArea != None:
 			return 1
@@ -264,6 +273,7 @@ class momo(object):
 		requests_count = 0
 		successful = 0
 		abandoned = 0
+		no_page_count = 0
 		first_write = True
 		for row in gid_list:
 			print '---------------------------'
@@ -279,19 +289,50 @@ class momo(object):
 				else:
 					self.result_df.to_csv(output_file_name, mode='a', index=False, header=False)
 				successful += 1
-				print '已requests數: ', str(requests_count)
+				print '已requests數: ', requests_count
 				print '已有資料筆數: ', successful
 
-			except Exception, e:
+			except Exception as e:
 				abandoned += 1
 				print '爬不到，抱歉'
 				print e
-				print '已requests數: ', str(requests_count)
+				if str(e) == "'NoneType' object has no attribute 'find'":
+					no_page_count += 1
+				print '已requests數: ', requests_count
 				print '已有資料筆數: ', successful
 				continue
 
-		print '爬不到的頁面總數量: ', abandoned		
+		print '處理失敗總數量: ', abandoned
+		print '無頁面總數量: ', no_page_count
 
+	# def testing(self, img_url):
+	# 	opener = urllib2.build_opener()
+	# 	opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
+	# 	image_file = opener.open(img_url)
+	# 	temp_image = cStringIO.StringIO(image_file.read())
+	# 	img = Image.open(temp_image)
+	# 	print self.color_temp_2(img)
+
+	# def color_temp_2(self, img):
+	# 	img_format = img.format
+	# 	print img_format
+	# 	width, height = img.size
+	# 	pixels = img.load()
+	# 	pixels_sum = [0, 0, 0]
+	# 	RGB_value = [0, 0, 0]
+	# 	print pixels[45, 23]
+	# 	for w in range(width):
+	# 		for h in range(height):
+	# 			if img_format == 'JPEG':
+	# 				RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
+	# 			elif img_format == 'PNG':
+	# 				RGB_value = self.deal_with_RGBA_image(pixels[w, h])
+	# 			else:
+	# 				print '影像格式不是JPEG或PNG'
+	# 				RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
+	# 			for x in range(3):
+	# 				pixels_sum[x] += RGB_value[x]
+	# 	return pixels_sum
 
 if __name__ == '__main__':
 	import time
@@ -306,3 +347,6 @@ if __name__ == '__main__':
 
 	time_cost = end - start
 	print "總花費時間", time_cost, "秒"
+
+	# obj = momo('i')
+	# obj.testing(sys.argv[1])
