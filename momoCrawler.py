@@ -120,7 +120,7 @@ class momo(object):
 		imgs = iframe_soup.find_all('img')
 
 		if len(imgs) == 0:
-			return 'No Image', 'No Image', 'No Image'
+			return 0, [0, 0], [0, 0]
 
 		height_sum = 0
 		r_sum, b_sum = 0, 0
