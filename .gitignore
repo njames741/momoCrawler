@@ -1,8 +1,5 @@
-cold1.jpg
-momo.py
-warm1.jpg
 *.csv
-predictions.py
+*.pkl
 
 
 # Project stuff
