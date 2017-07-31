@@ -45,11 +45,15 @@ def ridge_regression(data):
     response = ['label']
     # 宣告一個Ridge Regression model
     # lr = Ridge(normalize=True, alpha=0.01)
-    lr = Ridge(alpha=0.1)
+    lr = Ridge(alpha=0.00
+        1)
     # 定義應變數: label(需是一個DataFrame)
     y = data[response]
     # 定義features (需是一個DataFrame)
     X = data[features]
+    
+    leave_one_out(lr, X.values, y.values)
+    
     # fit regression model to the data
     model = lr.fit(X, y)
     # 利用我們的model預測中選率
@@ -64,7 +68,7 @@ def ridge_regression(data):
     print_MSE(y, predicted_y)
     plot_true_and_pred_scatter(y, predicted_y)
 
-def SVR(data, load_model):
+def SVR(data):
     features = data.columns.tolist()
     features.remove('GID')
     features.remove('label')
@@ -84,8 +88,9 @@ def SVR(data, load_model):
     #     # joblib.dump(model, 'svr_linear_kernel.pkl')
     #     joblib.dump(model, 'svr_rbf_kernel.pkl')
 
-    svr_algr = svm.SVR(C=2.0, kernel='rbf')
+    svr_algr = svm.SVR(C=1.0, kernel='rbf')
     leave_one_out(svr_algr, X.values, y.values)
+
     # fit regression model to the data
     model = svr_algr.fit(X, y.values.ravel())
     # 利用我們的model預測中選率
@@ -93,7 +98,7 @@ def SVR(data, load_model):
     
     # 處理y和predicted_y的資料結構，以方便後續處理
     y = np.array(y)
-    predicted_y = predicted_y.reshape(661, 1)
+    predicted_y = predicted_y.reshape(X.shape[0], 1)
     # print predicted_y
     # print y
 
@@ -140,7 +145,7 @@ def print_MSE(y, predicted_y):
 def plot_true_and_pred_scatter(y, predicted_y):
     fig, ax = plt.subplots()
     ax.scatter(y, predicted_y, s=10)
-    # ax.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=4)
+    ax.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2)
     ax.set_xlabel('True label', fontsize=20)
     ax.set_ylabel('Predicted label', fontsize=20)
     ax.axis([-0.1, 1.1, -0.1, 1.1])
@@ -180,15 +185,18 @@ def leave_one_out(algr, X, y):
     print 'Leave One Out的mse ' ,mse
     print '-----------------------'
 
-
+def filter_look_time(data):
+    data = data.drop(data[data['look_times'] < 20].index)
+    return data
+    
 
 if __name__ == '__main__':    
-    data = pd.read_csv('./result_detergent_965.csv')
+    data = pd.read_csv('./result_detergent_898_3.csv')
+    data = filter_look_time(data)
     # data = standardizing(data)
-    # data = normalizing(data)
-    # load_model = False
-    load_model = True
+    data = normalizing(data)
 
+    print data
     # linear_regression(data)
-    # ridge_regression(data)
-    SVR(data, load_model)
+    ridge_regression(data)
+    # SVR(data)
