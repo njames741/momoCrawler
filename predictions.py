@@ -142,7 +142,7 @@ def plot_true_and_pred_scatter(y, predicted_y):
     plt.show()
 
 def standardizing(data):
-    data = data.reset_index()
+    data = data.reset_index(drop=True)
     X = data.iloc[:, :-1]
     X_array = StandardScaler().fit_transform(X)
     X_df = pd.DataFrame(X_array, columns=X.columns)
@@ -150,7 +150,7 @@ def standardizing(data):
     return result
 
 def normalizing(data):
-    data = data.reset_index()
+    data = data.reset_index(drop=True)
     X = data.iloc[:, :-1]
     X_array = MinMaxScaler().fit_transform(X)
     X_df = pd.DataFrame(X_array, columns=X.columns)
@@ -197,20 +197,36 @@ def activate_drop_columns(data):
     for index in range(1, len(data.columns)-2):
         drop_columns(data, index)
 
+def scatter_plots(data):
+    data.plot(x='productFormatCount', y='img_height', style='o')
+    plt.show()
+
 
 if __name__ == '__main__':    
     data = pd.read_csv('./result_detergent_898_4.csv')
     data = filter_look_time(data)
     data = drop_GID_looktime(data)
-
     # data = standardizing(data)
-    # data = normalizing(data)
+    data = normalizing(data)
     # print data
+
+    scatter_plots(data)
     
     # activate_drop_columns(data)
-    # for index in range(1, len(data.columns)-2):
-    #     drop_columns(data, index)
 
     # linear_regression(data)
     # ridge_regression(data)
-    SVR(data)
+    # SVR(data)
+
+
+
+"""
+[u'price', u'discount', u'payment_CreditCard', u'payment_Arrival',
+       u'payment_ConvenienceStore', u'payment_ATM', u'payment_iBon',
+       u'preferential_count', u'img_height', u'is_warm', u'is_cold',
+       u'is_bright', u'is_dark', u'12H', u'shopcart', u'superstore',
+       u'productFormatCount', u'attributesListArea', u'haveVideo', u'Taiwan',
+       u'EUandUS', u'Germany', u'UK', u'US', u'Japan', u'Malaysia',
+       u'Australia', u'other', u'supplementary', u'bottle', u'combination',
+       u'label']
+"""
