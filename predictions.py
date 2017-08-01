@@ -9,7 +9,7 @@ from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 from sklearn import svm
 from matplotlib import pyplot as plt
-# import pickle
+import pickle
 from sklearn.externals import joblib
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import LeaveOneOut
@@ -39,14 +39,11 @@ def linear_regression(data):
 # 有正規化w的線性回歸
 def ridge_regression(data):
     features = data.columns.tolist()
-    features.remove('GID')
     features.remove('label')
-    features.remove('look_times')
     response = ['label']
     # 宣告一個Ridge Regression model
     # lr = Ridge(normalize=True, alpha=0.01)
-    lr = Ridge(alpha=0.00
-        1)
+    lr = Ridge()
     # 定義應變數: label(需是一個DataFrame)
     y = data[response]
     # 定義features (需是一個DataFrame)
@@ -64,15 +61,13 @@ def ridge_regression(data):
     # 列印各個結果
     # print_y_and_predicted_y(y, predicted_y)
     print_r2_score(y, predicted_y)
-    print_coefficients(model, features)
+    # print_coefficients(model, features)
     print_MSE(y, predicted_y)
     plot_true_and_pred_scatter(y, predicted_y)
 
 def SVR(data):
     features = data.columns.tolist()
-    features.remove('GID')
     features.remove('label')
-    features.remove('look_times')
     response = ['label']
 
     y = data[response]
@@ -80,15 +75,12 @@ def SVR(data):
 
     # if load_model:
     #     model = joblib.load('svr_rbf_kernel.pkl') 
-    # else:  
-    #     svr_algr = svm.SVR(C=1.0, kernel='sigmoid')
-    #     # svr_algr = svm.SVR(C=1.0, kernel='linear')
-    #     # fit regression model to the data
-    #     model = svr_algr.fit(X, y.values.ravel())
-    #     # joblib.dump(model, 'svr_linear_kernel.pkl')
-    #     joblib.dump(model, 'svr_rbf_kernel.pkl')
-
     svr_algr = svm.SVR(C=1.0, kernel='rbf')
+    # svr_algr = svm.SVR(C=1.0, kernel='linear')
+    # fit regression model to the data
+    model = svr_algr.fit(X, y.values.ravel())
+    # joblib.dump(model, 'svr_linear_kernel.pkl')
+
     leave_one_out(svr_algr, X.values, y.values)
 
     # fit regression model to the data
@@ -99,8 +91,6 @@ def SVR(data):
     # 處理y和predicted_y的資料結構，以方便後續處理
     y = np.array(y)
     predicted_y = predicted_y.reshape(X.shape[0], 1)
-    # print predicted_y
-    # print y
 
     # 列印各個結果
     # print_y_and_predicted_y(y, predicted_y)
@@ -108,9 +98,8 @@ def SVR(data):
     # print_coefficients(model, features)
     print_MSE(y, predicted_y)
     plot_true_and_pred_scatter(y, predicted_y)
-    
 
-    
+
 def print_y_and_predicted_y(y, predicted_y):
     row_list = list()
     for index in range(len(y)):
@@ -153,16 +142,20 @@ def plot_true_and_pred_scatter(y, predicted_y):
     plt.show()
 
 def standardizing(data):
-    data_array = StandardScaler().fit_transform(data)
-    data_df = pd.DataFrame(data_array, columns=data.columns)
-    # print data_df
-    return data_df
+    data = data.reset_index()
+    X = data.iloc[:, :-1]
+    X_array = StandardScaler().fit_transform(X)
+    X_df = pd.DataFrame(X_array, columns=X.columns)
+    result = pd.concat([X_df, data[['label']]], axis=1)
+    return result
 
 def normalizing(data):
-    data_array = MinMaxScaler().fit_transform(data)
-    data_df = pd.DataFrame(data_array, columns=data.columns)
-    # print data_df
-    return data_df
+    data = data.reset_index()
+    X = data.iloc[:, :-1]
+    X_array = MinMaxScaler().fit_transform(X)
+    X_df = pd.DataFrame(X_array, columns=X.columns)
+    result = pd.concat([X_df, data[['label']]], axis=1)
+    return result
 
 def leave_one_out(algr, X, y):
     loo = LeaveOneOut()
@@ -182,21 +175,42 @@ def leave_one_out(algr, X, y):
         # break
     mse = square_error_sum / X.shape[0]
     print '-----------------------'
-    print 'Leave One Out的mse ' ,mse
+    print 'Leave One Out的mse ' , mse
     print '-----------------------'
 
 def filter_look_time(data):
     data = data.drop(data[data['look_times'] < 20].index)
     return data
-    
+
+def drop_columns(data, index):
+    print len(data.columns)
+    print '===================> 移除', data.columns[index], '<====================='
+    data = data.drop(data.columns[index], axis=1)
+    # ridge_regression(data)
+    SVR(data)
+
+def drop_GID_looktime(data):
+    data = data.drop(['GID', 'look_times'], axis=1)
+    return data
+
+def activate_drop_columns(data):
+    for index in range(1, len(data.columns)-2):
+        drop_columns(data, index)
+
 
 if __name__ == '__main__':    
-    data = pd.read_csv('./result_detergent_898_3.csv')
+    data = pd.read_csv('./result_detergent_898_4.csv')
     data = filter_look_time(data)
-    # data = standardizing(data)
-    data = normalizing(data)
+    data = drop_GID_looktime(data)
 
-    print data
+    # data = standardizing(data)
+    # data = normalizing(data)
+    # print data
+    
+    # activate_drop_columns(data)
+    # for index in range(1, len(data.columns)-2):
+    #     drop_columns(data, index)
+
     # linear_regression(data)
-    ridge_regression(data)
-    # SVR(data)
+    # ridge_regression(data)
+    SVR(data)
