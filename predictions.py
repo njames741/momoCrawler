@@ -84,7 +84,7 @@ def SVR(data):
     leave_one_out(svr_algr, X.values, y.values)
 
     # fit regression model to the data
-    model = svr_algr.fit(X, y.values.ravel())
+    # model = svr_algr.fit(X, y.values.ravel())
     # 利用我們的model預測中選率
     predicted_y = model.predict(X) # predicted_y是一個雙層numpy array
     
