@@ -1,6 +1,7 @@
 *.csv
 *.pkl
 *.png
+*.txt
 
 
 # Project stuff

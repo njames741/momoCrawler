@@ -179,7 +179,8 @@ def leave_one_out(algr, X, y):
     print '-----------------------'
 
 def filter_look_time(data):
-    data = data.drop(data[data['look_times'] < 20].index)
+    data = data.drop(data[data['look_times'] < 21].index)
+    data = data.reset_index(drop=True)
     return data
 
 def drop_columns(data, index):
@@ -201,21 +202,35 @@ def scatter_plots(data):
     data.plot(x='productFormatCount', y='img_height', style='o')
     plt.show()
 
+def join_new_label(data, label):
+    data = data.drop(['label'], axis=1)
+    result = data.join(label[['label']])
+    return result
+
 
 if __name__ == '__main__':    
     data = pd.read_csv('./result_detergent_898_4.csv')
+    print len(data.columns)
+    label = pd.read_csv('./ProValue.txt')
+    # print label
+
     data = filter_look_time(data)
+    data = join_new_label(data, label)
+    # print data
     data = drop_GID_looktime(data)
-    # data = standardizing(data)
-    data = normalizing(data)
+
     # print data
 
-    scatter_plots(data)
+    data = standardizing(data)
+    # data = normalizing(data)
+    # print data
+
+    # scatter_plots(data)
     
     # activate_drop_columns(data)
 
     # linear_regression(data)
-    # ridge_regression(data)
+    ridge_regression(data)
     # SVR(data)
 
 
