@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import math
 from pprint import pprint
 import sklearn
 import pandas as pd
@@ -14,6 +15,7 @@ from sklearn.externals import joblib
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import LeaveOneOut
 pd.set_option('display.float_format', lambda x: '%.5f' % x)
+pd.set_option('display.max_rows', 1000)
 
 
 def linear_regression(data):
@@ -49,6 +51,7 @@ def ridge_regression(data):
     # 定義features (需是一個DataFrame)
     X = data[features]
     
+
     leave_one_out(lr, X.values, y.values)
     
     # fit regression model to the data
@@ -59,9 +62,9 @@ def ridge_regression(data):
     y = np.array(y)
 
     # 列印各個結果
-    # print_y_and_predicted_y(y, predicted_y)
+    print_y_and_predicted_y(y, predicted_y)
     print_r2_score(y, predicted_y)
-    # print_coefficients(model, features)
+    print_coefficients(model, features)
     print_MSE(y, predicted_y)
     plot_true_and_pred_scatter(y, predicted_y)
 
@@ -104,7 +107,10 @@ def print_y_and_predicted_y(y, predicted_y):
     row_list = list()
     for index in range(len(y)):
         row_list.append([y[index][0], predicted_y[index][0]])
-    print pd.DataFrame(row_list, columns=['original_y', 'predicted_y'])
+    df = pd.DataFrame(row_list, columns=['original_y', 'predicted_y'])
+    # print df
+    # print df.loc[df[['']], :] 
+
     print '-----------------------'
 
 
@@ -127,22 +133,26 @@ def print_r2_score(y, predicted_y):
 def print_MSE(y, predicted_y):
     sum_y = reduce(lambda x,y: x+y, y)
     print 'y_true的平均值 ', (sum_y / len(y))[0]
-    print 'MSE ', mean_squared_error(y, predicted_y)
+    mse = mean_squared_error(y, predicted_y)
+    print 'MSE ', mse
+    print 'RMSE', math.sqrt(mse)
     print '-----------------------'
 
 
 def plot_true_and_pred_scatter(y, predicted_y):
     fig, ax = plt.subplots()
     ax.scatter(y, predicted_y, s=10)
-    ax.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2)
     ax.set_xlabel('True label', fontsize=20)
     ax.set_ylabel('Predicted label', fontsize=20)
-    ax.axis([-0.1, 1.1, -0.1, 1.1])
+    minEdge = min(y.min(),predicted_y.min())
+    maxEdge = max(y.max(),predicted_y.max())
+    ax.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2)
+    ax.axis([minEdge, maxEdge, minEdge, maxEdge])
     plt.gcf().set_size_inches( (6, 6) )
     plt.show()
 
 def standardizing(data):
-    data = data.reset_index(drop=True)
+    # data = data.reset_index(drop=True)
     X = data.iloc[:, :-1]
     X_array = StandardScaler().fit_transform(X)
     X_df = pd.DataFrame(X_array, columns=X.columns)
@@ -150,12 +160,20 @@ def standardizing(data):
     return result
 
 def normalizing(data):
-    data = data.reset_index(drop=True)
+    # data = data.reset_index(drop=True)
     X = data.iloc[:, :-1]
     X_array = MinMaxScaler().fit_transform(X)
     X_df = pd.DataFrame(X_array, columns=X.columns)
     result = pd.concat([X_df, data[['label']]], axis=1)
     return result
+
+def standardizing_with_label(data):
+    data = data.reset_index(drop=True)
+    # X = data.iloc[:, :-1]
+    X_array = StandardScaler().fit_transform(data)
+    X_df = pd.DataFrame(X_array, columns=data.columns)
+    # result = pd.concat([X_df, data[['label']]], axis=1)
+    return X_df
 
 def leave_one_out(algr, X, y):
     loo = LeaveOneOut()
@@ -191,7 +209,7 @@ def drop_columns(data, index):
     SVR(data)
 
 def drop_GID_looktime(data):
-    data = data.drop(['GID', 'look_times'], axis=1)
+    data = data.drop(['GID', 'look_times', 'productFormatCount'], axis=1)
     return data
 
 def activate_drop_columns(data):
@@ -204,44 +222,44 @@ def scatter_plots(data):
 
 def join_new_label(data, label):
     data = data.drop(['label'], axis=1)
-    result = data.join(label[['label']])
+    # data = data.rename(columns={'label': 'label_old'})
+    # print data
+    result = pd.merge(data, label, left_on='GID', right_on='gid')
+    result = result.drop(['gid'], axis=1)
+    # print result
+
+    # print result.sort_values('label_old', ascending=True)[['label_old']]
+    # print result.sort_values('label', ascending=True)[['label']]
+
     return result
 
 
 if __name__ == '__main__':    
     data = pd.read_csv('./result_detergent_898_4.csv')
-    print len(data.columns)
-    label = pd.read_csv('./ProValue.txt')
-    # print label
+
+    label = pd.read_csv('./ProValue_4.0.csv')
+    # print label[['label']]
 
     data = filter_look_time(data)
     data = join_new_label(data, label)
+    # data.to_csv('~/Downloads/new.csv')
+
+    # print data[['label']].describe()
     # print data
+    # print data.loc[data['GID'] == '2069836', :]
     data = drop_GID_looktime(data)
+    # print data.columns
 
     # print data
 
-    data = standardizing(data)
-    # data = normalizing(data)
-    # print data
+    # data = standardizing(data)
+    data = normalizing(data)
+    # data = standardizing_with_label(data)
+    print data.shape
 
     # scatter_plots(data)
-    
     # activate_drop_columns(data)
 
     # linear_regression(data)
     ridge_regression(data)
     # SVR(data)
-
-
-
-"""
-[u'price', u'discount', u'payment_CreditCard', u'payment_Arrival',
-       u'payment_ConvenienceStore', u'payment_ATM', u'payment_iBon',
-       u'preferential_count', u'img_height', u'is_warm', u'is_cold',
-       u'is_bright', u'is_dark', u'12H', u'shopcart', u'superstore',
-       u'productFormatCount', u'attributesListArea', u'haveVideo', u'Taiwan',
-       u'EUandUS', u'Germany', u'UK', u'US', u'Japan', u'Malaysia',
-       u'Australia', u'other', u'supplementary', u'bottle', u'combination',
-       u'label']
-"""
