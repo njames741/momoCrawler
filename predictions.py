@@ -52,7 +52,7 @@ def ridge_regression(data):
     X = data[features]
     
 
-    leave_one_out(lr, X.values, y.values)
+    # leave_one_out(lr, X.values, y.values)
     
     # fit regression model to the data
     model = lr.fit(X, y)
@@ -62,7 +62,7 @@ def ridge_regression(data):
     y = np.array(y)
 
     # 列印各個結果
-    print_y_and_predicted_y(y, predicted_y)
+    # print_y_and_predicted_y_and_corr(y, predicted_y)
     print_r2_score(y, predicted_y)
     print_coefficients(model, features)
     print_MSE(y, predicted_y)
@@ -96,21 +96,18 @@ def SVR(data):
     predicted_y = predicted_y.reshape(X.shape[0], 1)
 
     # 列印各個結果
-    # print_y_and_predicted_y(y, predicted_y)
+    # print_y_and_predicted_y_and_corr(y, predicted_y)
     print_r2_score(y, predicted_y)
-    # print_coefficients(model, features)
     print_MSE(y, predicted_y)
     plot_true_and_pred_scatter(y, predicted_y)
 
 
-def print_y_and_predicted_y(y, predicted_y):
+def print_y_and_predicted_y_and_corr(y, predicted_y):
     row_list = list()
     for index in range(len(y)):
         row_list.append([y[index][0], predicted_y[index][0]])
     df = pd.DataFrame(row_list, columns=['original_y', 'predicted_y'])
-    # print df
-    # print df.loc[df[['']], :] 
-
+    print 'y 與 predicted_y 的 correlation 為 ', df.corr()
     print '-----------------------'
 
 
@@ -121,6 +118,7 @@ def print_coefficients(model, features):
     for i in range(len(features)):
         row_list.append((features[i],coefs[i]))
     result =  pd.DataFrame(row_list, columns=['feature_name','coefficient'])
+    result.to_csv('./temp.csv', index=False)
     print result.sort_values('coefficient', ascending=False)
     print '-----------------------'
 
@@ -137,6 +135,7 @@ def print_MSE(y, predicted_y):
     print 'MSE ', mse
     print 'RMSE', math.sqrt(mse)
     print '-----------------------'
+    
 
 
 def plot_true_and_pred_scatter(y, predicted_y):
@@ -152,7 +151,6 @@ def plot_true_and_pred_scatter(y, predicted_y):
     plt.show()
 
 def standardizing(data):
-    # data = data.reset_index(drop=True)
     X = data.iloc[:, :-1]
     X_array = StandardScaler().fit_transform(X)
     X_df = pd.DataFrame(X_array, columns=X.columns)
@@ -160,7 +158,6 @@ def standardizing(data):
     return result
 
 def normalizing(data):
-    # data = data.reset_index(drop=True)
     X = data.iloc[:, :-1]
     X_array = MinMaxScaler().fit_transform(X)
     X_df = pd.DataFrame(X_array, columns=X.columns)
@@ -179,18 +176,11 @@ def leave_one_out(algr, X, y):
     loo = LeaveOneOut()
     square_error_sum = 0.0
     for train_index, test_index in loo.split(X):
-        # print "TRAIN:", train_index
-        # print "TEST:", test_index
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        # print X_train
         model = algr.fit(X_train, y_train.ravel())
         predicted_y = model.predict(X_test)
-        # print predicted_y
-        # print y_test
         square_error_sum += float(y_test[0] - predicted_y) ** 2
-        # print square_error_sum
-        # break
     mse = square_error_sum / X.shape[0]
     print '-----------------------'
     print 'Leave One Out的mse ' , mse
@@ -208,8 +198,9 @@ def drop_columns(data, index):
     # ridge_regression(data)
     SVR(data)
 
-def drop_GID_looktime(data):
-    data = data.drop(['GID', 'look_times', 'productFormatCount'], axis=1)
+def drop_something(data):
+    data = data.drop(['GID', 'look_times', 'productFormatCount', 'discount', 'shopcart'], axis=1)
+    # data = data.drop(['GID', 'look_times', 'productFormatCount', 'shopcart', 'discount'], axis=1)
     return data
 
 def activate_drop_columns(data):
@@ -220,42 +211,60 @@ def scatter_plots(data):
     data.plot(x='productFormatCount', y='img_height', style='o')
     plt.show()
 
-def join_new_label(data, label):
-    data = data.drop(['label'], axis=1)
-    # data = data.rename(columns={'label': 'label_old'})
-    # print data
-    result = pd.merge(data, label, left_on='GID', right_on='gid')
-    result = result.drop(['gid'], axis=1)
-    # print result
-
+def join_new_label_and_price(data, new_price_and_label):
+    # print(new_price_and_label.columns)
+    # print(data.columns)
+    data = data.drop(['label', 'price'], axis=1) # 丟掉舊label和price
+    result = pd.merge(data, new_price_and_label, left_on='GID', right_on='gid') # join新label
+    result = result.drop(['gid'], axis=1) # 丟掉多出來的gid
+    column_list = result.columns.tolist() # 改變column順序，把price拿到第二個
+    column_list = column_list[:1] + column_list[-1:] + column_list[1:-1]
+    result = result[column_list]
+    # 印勝敗指數和獲選率的排名
     # print result.sort_values('label_old', ascending=True)[['label_old']]
     # print result.sort_values('label', ascending=True)[['label']]
-
     return result
 
+def join_label(data, label):
+    data = data.drop('label', axis=1) # 丟掉舊label和price
+    result = pd.merge(data, label, left_on='GID', right_on='gid') # join新label
+    result = result.drop(['gid'], axis=1) # 丟掉多出來的gid
+    return result
 
-if __name__ == '__main__':    
-    data = pd.read_csv('./result_detergent_898_4.csv')
+    
 
-    label = pd.read_csv('./ProValue_4.0.csv')
-    # print label[['label']]
+if __name__ == '__main__':   
+    # :::: 初始898版本 (898筆，爬的到685多筆，濾完looktime剩119筆) ::::
+    # data = pd.read_csv('./detergent_new_price/result_detergent_898_4.csv')
+    # label = pd.read_csv('winning_index/ProValue_4.0.csv')
+    # data = join_label(data, label)
 
-    data = filter_look_time(data)
-    data = join_new_label(data, label)
-    # data.to_csv('~/Downloads/new.csv')
+    # 有加入「有買但沒看過的」，濾完looktime有335筆，爬的到有226筆
+    # new_price_and_label = pd.read_csv('./detergent_new_price/proValue_detergent_para1_month3.csv')
+    # new_price_and_label = pd.read_csv('./detergent_new_price/choose_rate_detergent_month3.csv')
+    # data = pd.read_csv('./0818/result_detergent_choose0817.csv') # 已經濾過look_time
+    # new_price_and_label = pd.read_csv('./0818/winning_index_3month_0818.csv')
+    # new_price_and_label = pd.read_csv('./0818/choose_rate_3month_0818.csv')
 
-    # print data[['label']].describe()
-    # print data
-    # print data.loc[data['GID'] == '2069836', :]
-    data = drop_GID_looktime(data)
+    # :::: 310版本 (濾完looktime有310筆，爬的到的有198筆) ::::
+    # data = pd.read_csv('./edition_310/result_detergent_310.csv')
+
+    data = pd.read_csv('./edition_226/result_detergent_choose_2dim_226.csv')
+    new_price_and_label = pd.read_csv('./edition_226/winning_index_3month_looktimes60_0824.csv')
+
+    
+
+    # data = filter_look_time(data)
+    data = join_new_label_and_price(data, new_price_and_label)
+    # data.to_csv('temp.csv', index=False)
+    data = drop_something(data)
     # print data.columns
-
-    # print data
+    # print data.shape
 
     # data = standardizing(data)
     data = normalizing(data)
+    print 'Shape: ', data.shape
     # data = standardizing_with_label(data)
-    print data.shape
 
     # scatter_plots(data)
     # activate_drop_columns(data)

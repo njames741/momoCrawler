@@ -66,17 +66,61 @@ class process_description(object):
         for item in df[['DESCRIBE_301', 'DESCRIBE_302']].values.tolist():
             all_text += (str(item[0]) + str(item[1]))
         return all_text
-            
-        
+
+class process_producing_country(object):
+    """
+    將產地由9維降為2維
+    """
+    def __init__(self):
+        self.count = 0
+        self.output_df = pd.DataFrame(columns=['GID', 'price', 'discount', 'payment_CreditCard',
+                                'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM',
+                                'payment_iBon', 'preferential_count', 'img_height', 'is_warm',
+                                'is_cold', 'is_bright', 'is_dark', '12H', 'shopcart',
+                                'superstore', 'productFormatCount', 'attributesListArea',
+                                'haveVideo', 'mainProductionPlace', 'otherProductionPlace', 'supplementary', 'bottle',
+                                'combination', 'look_times', 'label'])
+
+    def function(self):
+        data = pd.read_csv('edition_335/result_detergent_choose335.csv')
+        # print self.output_df.shape
+        # print data.shape # (226, 34)
+
+        # print data.columns[20] # 產地的第一個，台灣
+        # print data.columns[28] # 產地的最後一個，其他
+        # print data.columns[20:29] # 產地全部欄位，共9維
+
+        for index, row in data.iterrows():
+            # ===> 有產地，或其他，沒產地就是都0
+            found = False
+            if row[28] == 1: # 如果是其他
+                self.create_df(row[0:20].tolist(), [0, 1], row[29:].tolist(), index)
+                continue
+            for item in row[20:29]: # 掃過所有產地
+                if item != 0: # 有產地
+                    found = True
+                    self.create_df(row[0:20].tolist(), [1, 0], row[29:].tolist(), index)
+                    break
+            if found: # 有找到產地
+                continue
+            else: # 沒有產地
+                self.create_df(row[0:20].tolist(), [0, 0], row[29:].tolist(), index)
+
+        self.output_df.to_csv('./edition_226/result_detergent_choose_2dim_226.csv', index=False)
+
+    def create_df(self, head, new_country_list, tail, index):
+        # self.count += 1
+        row_list = (head + new_country_list + tail)
+        self.output_df.loc[index] = row_list
 
 
-
-        
 
 if __name__ == '__main__':
-    obj = process_description()
+    # obj = process_description()
     # obj.get_seg_list('溫柔洗淨衣物，呵護你的肌膚?')
-    obj.high_and_low_kw()
+    # obj.high_and_low_kw()
+    obj = process_producing_country()
+    obj.function()
 
 
 """

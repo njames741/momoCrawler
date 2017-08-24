@@ -2,6 +2,7 @@
 *.pkl
 *.png
 *.txt
+test.py
 
 
 # Project stuff
