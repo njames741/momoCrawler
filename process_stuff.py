@@ -113,6 +113,8 @@ class process_producing_country(object):
         row_list = (head + new_country_list + tail)
         self.output_df.loc[index] = row_list
 
+class join_
+
 
 
 if __name__ == '__main__':

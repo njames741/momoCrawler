@@ -3,6 +3,7 @@
 *.png
 *.txt
 test.py
+pics/
 
 
 # Project stuff
