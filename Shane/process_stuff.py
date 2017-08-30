@@ -83,13 +83,12 @@ class process_producing_country(object):
 
     def function(self):
         data = pd.read_csv('edition_335/result_detergent_choose335.csv')
-        # print self.output_df.shape
-        # print data.shape # (226, 34)
-
-        # print data.columns[20] # 產地的第一個，台灣
-        # print data.columns[28] # 產地的最後一個，其他
-        # print data.columns[20:29] # 產地全部欄位，共9維
-
+        """
+        data.shape # (226, 34)
+        data.columns[20] # 產地的第一個，台灣
+        data.columns[28] # 產地的最後一個，其他
+        data.columns[20:29] # 產地全部欄位，共9維
+        """
         for index, row in data.iterrows():
             # ===> 有產地，或其他，沒產地就是都0
             found = False
@@ -113,7 +112,22 @@ class process_producing_country(object):
         row_list = (head + new_country_list + tail)
         self.output_df.loc[index] = row_list
 
-class join_
+class join_production_country(object):
+    def __init__(self):
+        pass
+
+    def function(self):
+        data = pd.read_csv('./bodywash/result_bodywash_183/result_bodywash_183_withoutPC.csv')
+        PC = pd.read_csv('bodywash/production_country/CR_BodyWash_lk10_origin.csv')
+        # print PC
+        result = pd.merge(data, PC, how='left', on='GID')
+        result = result.drop('origin', axis=1)
+        result = result[['GID', 'haveOrigin', 'volume', 'supplementary', 'bottle', 'combination',
+                        'price', 'discount', 'payment_ConvenienceStore',
+                        'preferential_count', 'img_height', 'is_warm', 'is_cold', '12H',
+                        'shopcart', 'haveVideo', 'installments', 'look_times', 'label']]
+        print result.columns
+        result.to_csv('./bodywash/result_bodywash_183/result_bodywash_183.csv', index=False)
 
 
 
@@ -121,7 +135,7 @@ if __name__ == '__main__':
     # obj = process_description()
     # obj.get_seg_list('溫柔洗淨衣物，呵護你的肌膚?')
     # obj.high_and_low_kw()
-    obj = process_producing_country()
+    obj = join_production_country()
     obj.function()
 
 

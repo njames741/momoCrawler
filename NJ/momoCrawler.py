@@ -12,6 +12,9 @@ import csv
 import os.path
 import time
 import numpy as np
+import jieba
+import traceback
+
 
 
 def timeit(method):
@@ -43,13 +46,18 @@ class momo(object):
 		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', \
 			'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', \
 			'preferential_count', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', \
-			'12H', 'shopcart', 'superstore', 'productFormatCount', 'attributesListArea', 'look_times', 'label'))
+			'12H', 'shopcart', 'superstore', 'productFormatCount', 'attributesListArea', \
+			'haveVideo', 'Taiwan','EUandUS','Germany','UK','US','Japan','Malaysia','Australia','other', \
+		 	'supplementary', 'bottle', 'combination', 'look_times', 'label'))
+		# outputOriginList = [u'台灣', u'歐美', u'德國', u'英國', u'美國', u'日本', u'馬來西亞', u'澳洲', u'其他']
 		if status == 'c':
 			self.with_header = False
 		elif status == 'i':
 			self.with_header = True
 		else:
 			raise SystemInputError('系統參數請輸入: c -> 續寫, i -> 從頭開始執行')
+
+		jieba.set_dictionary('dict.txt.big')
 
 	# 價錢
 	def price(self,soup):
@@ -125,18 +133,22 @@ class momo(object):
 		brightness_sum = 0
 
 		for img in imgs:
+			print img['src']
 			imgsrc = img['src'].split('?')[0]
-			if imgsrc[:6] != 'https:':
+			if imgsrc[:6] == '/exper':
 				imgsrc = 'https://www.momoshop.com.tw' + imgsrc
+			if imgsrc[:5] == '//img':
+				imgsrc = 'https:' + imgsrc
 
 			if imgsrc[8:12] == 'img1' or imgsrc[8:12] == 'img2':
 				imgsrc = 'https://img3' + imgsrc[12:]
-
+			imgsrc = imgsrc.replace('"','')
 			try:
 				image_file = opener.open(imgsrc)
 				print imgsrc
 			except:
 				print '==============img url錯誤===================='
+
 				print imgsrc
 			temp_image = cStringIO.StringIO(image_file.read())
 			image = Image.open(temp_image)
@@ -218,7 +230,7 @@ class momo(object):
 			transportList.append(0)
 
 		superstore = soup.select('#superstore')
-		if shopcart != []:
+		if superstore != []:
 			transportList.append(1)
 		else:
 			transportList.append(0)
@@ -234,13 +246,163 @@ class momo(object):
 			productFormatListLen = productFormatListLen-1
 		return productFormatListLen
 
+	#在商品規格欄位中有無使用表格
 	def attributesListArea(self, soup):
 		ListArea = soup.find('div','attributesListArea')
 		if ListArea != None:
 			return 1
 		else:
 			return 0
-	
+
+	#有無包含影片
+	def haveVideo(self, soup):
+		vendordetailview = soup.find('div', class_='vendordetailview')
+		iframe = vendordetailview.find('iframe')
+		iframesrc = iframe['src']
+		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
+
+		# time.sleep(3)
+		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
+		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
+		video = iframe_soup.findAll('iframe')
+
+		if len(video) >= 1:
+			return 1
+		else:
+			return 0
+
+
+	#產地
+	def origin(self, soup):
+		ListArea = soup.find('div','attributesListArea')
+		specificationArea = soup.find('div','vendordetailview specification')
+		specificationArea = specificationArea.find('p')
+
+		originList = [u'台灣',u'臺灣',u'德國',u'英國',u'歐美',u'歐洲',u'日本',u'美國',u'其他',u'其它',u'馬來西亞'\
+					,u'法國',u'東南亞',u'亞州',u'韓國',u'中國',u'大陸',u'中國大陸',u'澳洲']
+		originTypeList = [u'產地',u'原產地',u'製造',u'生產',u'生產地',u'製造地']
+
+		outputOriginList = [u'台灣', u'歐美', u'德國', u'英國', u'美國', u'日本', u'馬來西亞', u'澳洲', u'其他']
+		outputList = [0,0,0,0,0,0,0,0,0]
+		finalOrigin = ''
+
+		vendordetailview = soup.find('div', class_='vendordetailview')
+		iframe = vendordetailview.find('iframe')
+		iframesrc = iframe['src']
+		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
+		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
+		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
+		iframe_soup = iframe_soup.text.replace('\n','').replace(' ','')
+		iframeWords = jieba.cut(iframe_soup, cut_all=False)
+		iframeWords = ("/".join(iframeWords)).split('/')
+		originTypeIndexiframe = [i for i,v in enumerate(iframeWords) if v in originTypeList]
+
+		specificationArea = specificationArea.text.replace('\n','').replace(' ','')
+		words = jieba.cut(specificationArea, cut_all=False)
+		words = ("/".join(words)).split('/')
+		#找各種產地字詞的index
+		originTypeIndex = [i for i,v in enumerate(words) if v in originTypeList]
+		# for i in iframeWords:
+		# 	print i
+		
+		# print originTypeIndexiframe
+
+		#先找表格下面的文字中有無產地
+		if originTypeIndex:
+			temp = []
+			for i in originTypeIndex:
+				if (i-6) < 0:
+					start = 0
+				else:
+					start = (i-6)
+				temp += words[start:i+6]
+			temp = list(set(temp))
+			# for i in temp:
+			# 	print i
+			origin =  [val for val in originList if val in temp]
+			if origin:
+				finalOrigin = origin[0]
+		#再找表格
+		print ListArea.findAll('th')
+		if ListArea.findAll('th') != [] and finalOrigin == u'': 
+			ListArea2 = ListArea.findAll('th')
+			ListArea3 = ListArea.findAll('ul')
+			ListArea2 = map(lambda x:x.text,ListArea2)
+			ListArea3 = map(lambda x:x.text,ListArea3)
+			dictionary = dict(zip(ListArea2, ListArea3))
+			print dictionary
+			finalOrigin = dictionary[u'產地']
+		#再找商品特色頁面
+		if originTypeIndexiframe and finalOrigin == u'':
+			temp = []
+			for i in originTypeIndexiframe:
+				if (i-6) < 0:
+					start = 0
+				else:
+					start = (i-6)
+				temp += iframeWords[start:i+6]
+			temp = list(set(temp))
+			origin =  [val for val in originList if val in temp]
+			if origin:
+				finalOrigin = origin[0]	
+		if finalOrigin == u'':
+			finalOrigin = u'N'
+			
+		for i in range(len(outputOriginList)):
+			if finalOrigin == outputOriginList[i]:
+				outputList[i] = 1
+
+		return outputList
+
+	#找出銷售單位(瓶or補充包or組合)
+	def unit(self, soup):
+		unitList = [0,0,0]
+		supplement = [u'補充',u'包',u'袋']
+		bottle = [u'瓶',u'罐']
+		ListArea = soup.find('div','attributesListArea')
+		#先找表格中有沒有"單位"欄位
+		if ListArea != None:
+			ListArea2 = ListArea.findAll('th')
+			ListArea3 = ListArea.findAll('ul')
+			ListArea2 = map(lambda x:x.text,ListArea2)
+			ListArea3 = map(lambda x:x.text,ListArea3)
+			dictionary = dict(zip(ListArea2, ListArea3))
+			try:
+				unitType = dictionary[u'單位']
+				for i in supplement:
+					if i in unitType:
+						unitList = [0,1,0]
+					elif u'組' in unitType:
+						unitList = [0,0,1]
+					else:
+						unitList = [1,0,0]
+			except:
+				pass
+		#若沒找到則比對商品名稱中的關鍵字
+		if unitList == [0,0,0]:
+			goodName = soup.find('div','prdnoteArea').find('h1').text
+			supplementBoolean = False
+			bottleBoolean = False
+			for i in supplement:
+				if i in goodName:
+					supplementBoolean = True
+			for i in bottle:
+				if i in goodName:
+					bottleBoolean = True
+			if (supplementBoolean and bottleBoolean) or u'組' in goodName:
+				unitList = [0,0,1]
+			elif supplementBoolean:
+				unitList = [0,1,0]
+			elif bottleBoolean:
+				unitList = [1,0,0]
+			#若都沒有找到關鍵字，就算是瓶裝
+			else:
+				unitList = [1,0,0]
+
+		return unitList
+
+	def 
+
 	@timeit
 	def get_rows(self, goods_icode, look_num, label):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
@@ -250,22 +412,31 @@ class momo(object):
 
 		row_list = list()
 		row_list.append(goods_icode)
-		row_list.append(self.price(soup))
-		row_list.append(self.discount(soup))
-		row_list += self.payment(soup)
-		row_list.append(self.preferentialCount(soup))
-		# row_list.append(self.reciprocal(soup))
-		img_result_list = self.image_analysis(soup)
-		row_list.append(img_result_list[0])
-		row_list += img_result_list[1]
-		row_list += img_result_list[2]
+		# row_list.append(self.price(soup))
+		# row_list.append(self.discount(soup))
+		# row_list += self.payment(soup)
+		# row_list.append(self.preferentialCount(soup))
+		# img_result_list = self.image_analysis(soup)
+		# row_list.append(img_result_list[0])
+		# row_list += img_result_list[1]
+		# row_list += img_result_list[2]
+		# row_list += self.transport(soup)
+		# row_list.append(self.productFormatCount(soup))
+		# row_list.append(self.attributesListArea(soup))
+		# row_list.append(self.haveVideo(soup))
+		# row_list += self.origin(soup)
+		# row_list += self.unit(soup)
+		# row_list.append(look_num)
+		# row_list.append(label)
+		row_list.append()
 		
-		row_list += self.transport(soup)
-		row_list.append(self.productFormatCount(soup))
-		row_list.append(self.attributesListArea(soup))
-		row_list.append(look_num)
-		row_list.append(label)
-		print row_list
+
+
+		# print row_list
+
+		# for key,value in row_list[0].items():
+		# 	print key,value 
+
 		return row_list
 
 	def create_csv(self, input_file_name, output_file_name):
@@ -281,21 +452,23 @@ class momo(object):
 			# if requests_count == 10: break
 			print str(int(row[0])), row[1]
 			try:
-				self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[3], row[1])
-				if first_write and self.with_header:
-					self.result_df.to_csv(output_file_name, mode='a', index=False)
-					first_write = False
-					self.with_header = False
-				else:
-					self.result_df.to_csv(output_file_name, mode='a', index=False, header=False)
-				successful += 1
-				print '已requests數: ', requests_count
-				print '已有資料筆數: ', successful
+				print self.get_rows(str(int(row[0])), row[3], row[1])
+				# self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[3], row[1])
+				# if first_write and self.with_header:
+				# 	self.result_df.to_csv(output_file_name, mode='a', index=False)
+				# 	first_write = False
+				# 	self.with_header = False
+				# else:
+				# 	self.result_df.to_csv(output_file_name, mode='a', index=False, header=False)
+				# successful += 1
+				# print '已requests數: ', requests_count
+				# print '已有資料筆數: ', successful
 
 			except Exception as e:
 				abandoned += 1
 				print '爬不到，抱歉'
-				print e
+				# print e
+				traceback.print_exc()
 				if str(e) == "'NoneType' object has no attribute 'find'":
 					no_page_count += 1
 				print '已requests數: ', requests_count
@@ -335,18 +508,11 @@ class momo(object):
 	# 	return pixels_sum
 
 if __name__ == '__main__':
-	import time
 	import sys
 	# 如果是從某個GID開始續寫，輸入小寫c
 	# 如果是從頭開始跑，輸入小寫i
 	obj = momo(sys.argv[1])
-
-	start = time.time()
 	obj.create_csv(sys.argv[2], sys.argv[3])
-	end = time.time()
-
-	time_cost = end - start
-	print "總花費時間", time_cost, "秒"
 
 	# obj = momo('i')
-	# obj.testing(sys.argv[1])
+	# obj.get_rows(sys.argv[1],123,321)
