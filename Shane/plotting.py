@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
+from predict import *
 
 def plot_true_and_pred_scatter(y, predicted_y):
     fig, ax = plt.subplots()
@@ -15,4 +16,4 @@ def plot_true_and_pred_scatter(y, predicted_y):
     plt.show()
 
 def Y_preY_histogram(self):
-    
+    pass

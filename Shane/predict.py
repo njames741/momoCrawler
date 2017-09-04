@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 import math
 from pprint import pprint
@@ -89,8 +90,10 @@ def _print_coefficients(model, features, output_path):
     for i in range(len(features)):
         row_list.append((features[i],coefs[i]))
     result =  pd.DataFrame(row_list, columns=['feature_name','coefficient'])
-    print result.sort_values('coefficient', ascending=False)
-    result.to_csv(output_path, index=False)
+    _weightProcessing(result) # 印正規化權重用的
+    print '-----------------------'
+    # print result.sort_values('coefficient', ascending=False)
+    # result.to_csv(output_path, index=False)
     print '-----------------------'
 
 def _print_r2_score(y, predicted_y):
@@ -187,3 +190,11 @@ def join_price_for_CR(data, new_price_and_label):
        'bottle', 'combination', 'payment_ConvenienceStore', 'img_height', 'is_warm', 'is_cold', '12H',
        'haveVideo', 'installments', 'look_times', 'label']]
     return result
+
+def _weightProcessing(weightDF):
+    weightDF = weightDF.loc[1:, :]
+    weightDF['coefficient'] = weightDF['coefficient'].abs()
+    min_max_scaler = preprocessing.MinMaxScaler()
+    weight_scaled = min_max_scaler.fit_transform(weightDF[['coefficient']])
+    weightDF['coefficient'] = weight_scaled
+    print weightDF.sort_values('coefficient', ascending=False).to_string(index=False)
