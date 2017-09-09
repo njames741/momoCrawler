@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 import math
 from pprint import pprint
@@ -13,7 +12,7 @@ import pickle
 from sklearn.externals import joblib
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import LeaveOneOut
-from plotting import plot_true_and_pred_scatter
+from plotting import plot_true_and_pred_scatter, std_error
 
 pd.set_option('display.float_format', lambda x: '%.5f' % x)
 pd.set_option('display.max_rows', 1000)
@@ -30,7 +29,7 @@ def ridge_regression(data, a):
     # 定義features (需是一個DataFrame)
     X = data[features]
 
-    _leave_one_out(lr, X.values, y.values)
+    # _leave_one_out(lr, X.values, y.values)
     
     # fit regression model to the data
     model = lr.fit(X, y)
@@ -39,12 +38,13 @@ def ridge_regression(data, a):
     # 把原本y的DataFrame也轉成雙層numpy array，方便等等列印
     y = np.array(y)
 
-    # 列印各個結果
+    # 列印各結果
     _print_y_and_predicted_y_and_corr(y, predicted_y)
     _print_r2_score(y, predicted_y)
-    _print_coefficients(model, features, '~/Desktop/temp0830/body_WI_lt10.csv')
+    _print_coefficients(model, features, '~/Desktop/權重_獲選率_lt30.csv')
     _print_MSE(y, predicted_y)
-    plot_true_and_pred_scatter(y, predicted_y)
+    # plot_true_and_pred_scatter(y, predicted_y)
+    # std_error(y, predicted_y)
 
 def SVR(data):
     features = data.columns.tolist()
@@ -90,10 +90,11 @@ def _print_coefficients(model, features, output_path):
     for i in range(len(features)):
         row_list.append((features[i],coefs[i]))
     result =  pd.DataFrame(row_list, columns=['feature_name','coefficient'])
-    _weightProcessing(result) # 印正規化權重用的
+    # _weightProcessing(result) # 印正規化權重用的
     print '-----------------------'
-    # print result.sort_values('coefficient', ascending=False)
-    # result.to_csv(output_path, index=False)
+    result = result.sort_values('coefficient', ascending=False)
+    print result
+    result.to_csv(output_path, index=False)
     print '-----------------------'
 
 def _print_r2_score(y, predicted_y):
@@ -198,3 +199,4 @@ def _weightProcessing(weightDF):
     weight_scaled = min_max_scaler.fit_transform(weightDF[['coefficient']])
     weightDF['coefficient'] = weight_scaled
     print weightDF.sort_values('coefficient', ascending=False).to_string(index=False)
+

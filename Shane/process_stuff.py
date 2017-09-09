@@ -208,10 +208,17 @@ class check_sales_volume_with_top_features(object):
         
 
 class check_sales_volume_with_sections(object):
+    """
+    統計不同模型下，擁有各feature的商品的平均銷售量與獲選率
+    """
     def __init__(self):
         pass
 
     def function(self, option):
+        """
+        input: 字串：沐浴乳、精華液、洗衣精
+        output: 列印結果
+        """
         if option == '沐浴乳':
             data = pd.read_csv('./bodywash/CR/result_bodywash_183.csv')
             data = filter_look_time(data, 31)
@@ -274,8 +281,6 @@ class check_sales_volume_with_sections(object):
             print key, '的銷售量', value / float(number_dict[key])
         for key, value in number_dict.items():
             print key, '有', value, '個'
-        
-
 
 
 
