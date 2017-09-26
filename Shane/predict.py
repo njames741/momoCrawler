@@ -43,7 +43,7 @@ def ridge_regression(data, a):
     _print_r2_score(y, predicted_y)
     _print_coefficients(model, features, '~/Desktop/權重_獲選率_lt30.csv')
     _print_MSE(y, predicted_y)
-    # plot_true_and_pred_scatter(y, predicted_y)
+    plot_true_and_pred_scatter(y, predicted_y)
     # std_error(y, predicted_y)
 
 def SVR(data):
@@ -94,7 +94,7 @@ def _print_coefficients(model, features, output_path):
     print '-----------------------'
     result = result.sort_values('coefficient', ascending=False)
     print result
-    result.to_csv(output_path, index=False)
+    # result.to_csv(output_path, index=False)
     print '-----------------------'
 
 def _print_r2_score(y, predicted_y):
@@ -124,12 +124,9 @@ def normalizing(data):
     result = pd.concat([X_df, data[['label']]], axis=1)
     return result
 
-def standardizing_with_label(data):
-    data = data.reset_index(drop=True)
-    # X = data.iloc[:, :-1]
-    X_array = StandardScaler().fit_transform(data)
+def normalizing_with_label(data):
+    X_array = MinMaxScaler().fit_transform(data)
     X_df = pd.DataFrame(X_array, columns=data.columns)
-    # result = pd.concat([X_df, data[['label']]], axis=1)
     return X_df
 
 def _leave_one_out(algr, X, y):
@@ -172,7 +169,7 @@ def scatter_plots(data):
 
 def join_new_label_and_price(data, new_price_and_label):
     data = data.drop(['label', 'price'], axis=1) # 丟掉舊label和price
-    result = pd.merge(data, new_price_and_label, on='GID') # join新label
+    result = pd.merge(data, new_price_and_label, on='GID') # join新label和price
     column_list = result.columns.tolist() # 改變column順序，把price拿到第二個
     column_list = column_list[:1] + column_list[-1:] + column_list[1:-1]
     result = result[column_list]
