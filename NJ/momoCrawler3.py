@@ -143,12 +143,13 @@ class momo(object):
 			if imgsrc[8:12] == 'img1' or imgsrc[8:12] == 'img2':
 				imgsrc = 'https://img3' + imgsrc[12:]
 			imgsrc = imgsrc.replace('"','')
+			# req = urllib2.Request(imgsrc,headers=self.headers)
 			try:
 				image_file = opener.open(imgsrc)
 				print imgsrc
-			except:
+			except Exception as e:
 				print '==============img url錯誤===================='
-
+				traceback.print_exc()
 				print imgsrc
 			temp_image = cStringIO.StringIO(image_file.read())
 			image = Image.open(temp_image)
@@ -429,12 +430,12 @@ class momo(object):
 		
 
 
-		# print row_list
+		print row_list
 
 		# for key,value in row_list[0].items():
 		# 	print key,value 
 
-		return row_list
+		# return row_list
 
 	def create_csv(self, input_file_name, output_file_name):
 		gid_list = pd.read_csv(input_file_name).values
@@ -508,14 +509,14 @@ if __name__ == '__main__':
 	import sys
 	# 如果是從某個GID開始續寫，輸入小寫c
 	# 如果是從頭開始跑，輸入小寫i
-	obj = momo(sys.argv[1])
+	# obj = momo(sys.argv[1])
 
-	start = time.time()
-	obj.create_csv(sys.argv[2], sys.argv[3])
-	end = time.time()
+	# start = time.time()
+	# obj.create_csv(sys.argv[2], sys.argv[3])
+	# end = time.time()
 
-	time_cost = end - start
-	print "總花費時間", time_cost, "秒"
+	# time_cost = end - start
+	# print "總花費時間", time_cost, "秒"
 
-	# obj = momo('i')
-	# obj.get_rows(sys.argv[1],123,321)
+	obj = momo('i')
+	obj.get_rows(sys.argv[1],123,321)
