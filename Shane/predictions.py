@@ -33,20 +33,20 @@ from predict import *
 
 # --------------- 沐浴乳，觀看次數10，獲選率(183筆)---------------
 # data = pd.read_csv('./bodywash/CR/result_bodywash_183.csv')
-# new_price_and_label = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk10.csv')
-# data = join_price_for_CR(data, new_price_and_label)
+# new_price = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk10.csv')
+# data = join_price_for_CR(data, new_price)
 # data = drop_something(data, ['GID', 'look_times'])
 
 # --------------- 沐浴乳，觀看次數20，獲選率(95筆)---------------
 # data = pd.read_csv('./bodywash/CR/result_bodywash_183.csv')
-# new_price_and_label = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk20.csv')
-# data = join_price_for_CR(data, new_price_and_label)
+# new_price = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk20.csv')
+# data = join_price_for_CR(data, new_price)
 # data = drop_something(data, ['GID', 'look_times'])
 
 # --------------- 沐浴乳，觀看次數30，獲選率(61筆)---------------
 # data = pd.read_csv('./bodywash/CR/result_bodywash_183.csv')
-# new_price_and_label = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk30.csv')
-# data = join_price_for_CR(data, new_price_and_label)
+# new_price = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk30.csv')
+# data = join_price_for_CR(data, new_price)
 # data = drop_something(data, ['GID', 'look_times'])
 
 
@@ -64,18 +64,33 @@ from predict import *
 # data = drop_something(data, ['GID', 'look_times'])
 
 # --------------- 沐浴乳，勝敗指數觀看次數30，有join來自goods_describe的price (61筆)---------------
-data = pd.read_csv('./bodywash/CR/result_bodywash_183.csv') 
-new_price_and_label = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk30.csv')
+# data = pd.read_csv('./bodywash/CR/result_bodywash_183.csv') 
+# new_price_and_label = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk30.csv')
+# data = join_new_label_and_price(data, new_price_and_label)
+# data = drop_something(data, ['GID', 'look_times'])
+
+
+##############################
+##        洗衣精新嘗試        ##
+##############################
+data = pd.read_csv('./edition_226/result_detergent_choose_226.csv')
+new_price_and_label = pd.read_csv('./new_try/WI_detergent_3m_lk20_pr.csv')
+# new_price_and_label = pd.read_csv('./edition_226/winning_index_3month_looktimes20_0824.csv') # 檢查用
 data = join_new_label_and_price(data, new_price_and_label)
 data = drop_something(data, ['GID', 'look_times'])
+# print new_price_and_label
+# print data.shape
 
 
-data = standardizing(data)
+
+# data = standardizing(data)
 # data = normalizing(data)
-print 'Shape: ', data.shape
+data = normalizing_with_label(data)
+# data.to_csv('./temp.csv')
+# print 'Shape: ', data.shape
 
 # scatter_plots(data)
 # activate_drop_columns(data)
 
-# ridge_regression(data, 0.1)
-SVR(data)
+ridge_regression(data, 0.1)
+# SVR(data)

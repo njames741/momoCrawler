@@ -3,6 +3,8 @@ import jieba
 import jieba.analyse
 import pandas as pd
 from pprint import pprint
+from predict import join_price_for_CR, filter_look_time
+
 
 class process_description(object):
     def __init__(self, data_path='new_detergent_goods_des.csv'):
@@ -67,6 +69,7 @@ class process_description(object):
             all_text += (str(item[0]) + str(item[1]))
         return all_text
 
+
 class process_producing_country(object):
     """
     將產地由9維降為2維
@@ -112,6 +115,7 @@ class process_producing_country(object):
         row_list = (head + new_country_list + tail)
         self.output_df.loc[index] = row_list
 
+
 class join_production_country(object):
     def __init__(self):
         pass
@@ -130,13 +134,168 @@ class join_production_country(object):
         result.to_csv('./bodywash/result_bodywash_183/result_bodywash_183.csv', index=False)
 
 
+class check_sales_volume_with_top_features(object):
+    def __init__(self):
+        pass
+
+    def function(self, option):
+        if option == '沐浴乳':
+            data = pd.read_csv('./bodywash/CR/result_bodywash_183.csv')
+            data = filter_look_time(data, 31)
+            features = ['bottle', '12H', 'payment_ConvenienceStore'] # 沐浴乳的前三特徵
+        elif option == '精華液':
+            data = pd.read_csv('./essense/result_essence_CR_lk10.csv')
+            data = filter_look_time(data, 31)
+            features = ['is_bright', 'sunscreen', 'whitening'] # 精華液的前三特徵
+        elif option == '洗衣精':
+            data = pd.read_csv('./detergent/result_detergent_CR_226.csv')
+            data = filter_look_time(data, 61)
+            features = ['superstore', 'haveVideo', 'bottle'] # 洗衣精的前三特徵
+        
+        # 以下是join price在用的
+        # new_price = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk10.csv')
+        # data = join_price_for_CR(data, new_price)
+        print data.shape
+        data = self.join_sales_volume(data, option) # join銷售量
+        print data.shape
+        # data.to_csv('check.csv')
+        print option, '的平均銷售量', data[['sales_volume']].mean().values[0]
+        print option, '的平均獲選率', data[['label']].mean().values[0]
+
+        CR_sum_dict = {features[0]:0, features[1]:0, features[2]:0}
+        SV_sum_dict = {features[0]:0, features[1]:0, features[2]:0}
+        number_dict = {features[0]:0, features[1]:0, features[2]:0}
+
+        for index, row in data.iterrows():
+            if row[features[0]] == 1: # 如果瓶裝是1
+                CR_sum_dict[features[0]] += row['label']
+                SV_sum_dict[features[0]] += row['sales_volume']
+                number_dict[features[0]] += 1
+            if row[features[1]] == 1: # 如果12H是1
+                CR_sum_dict[features[1]] += row['label']
+                SV_sum_dict[features[1]] += row['sales_volume']
+                number_dict[features[1]] += 1
+            if row[features[2]] == 1: # 如果便利商店是1
+                CR_sum_dict[features[2]] += row['label']
+                SV_sum_dict[features[2]] += row['sales_volume']
+                number_dict[features[2]] += 1
+        
+        self._printing(CR_sum_dict, SV_sum_dict, number_dict)
+
+    def join_sales_volume(self, data, option):
+        if option == '沐浴乳':
+            sales_volume_data = pd.read_excel('~/Dropbox/商品特徵偏好分析/分析/沐浴乳_銷售數量對應WI與CR.xlsx')
+            sales_volume_data = sales_volume_data[['GID_1', 'sales_volume']]
+            return pd.merge(data, sales_volume_data, left_on='GID', right_on='GID_1')
+        
+        elif option == '精華液':
+            sales_volume_data = pd.read_excel('~/Dropbox/商品特徵偏好分析/分析/精華液_銷售數量對應WI與CR.xlsx')
+            sales_volume_data = sales_volume_data[['GID_1', 'sales_volume']]
+            return pd.merge(data, sales_volume_data, left_on='GID', right_on='GID_1')
+
+        elif option == '洗衣精':
+            sales_volume_data = pd.read_excel('~/Dropbox/商品特徵偏好分析/分析/洗衣精_銷售數量對應WI與CR.xlsx')
+            sales_volume_data = sales_volume_data[['GID_1', 'sales_volume']]
+            return pd.merge(data, sales_volume_data, left_on='GID', right_on='GID_1')
+
+    def _printing(self, CR_sum_dict, SV_sum_dict, number_dict):
+        for key, value in CR_sum_dict.items():
+            print '有 ', key, ' 特徵的商品，平均「獲選率」為', value / float(number_dict[key])
+        for key, value in SV_sum_dict.items():
+            print '有 ', key, ' 特徵的商品，平均「銷售量」為', value / float(number_dict[key])
+        for key, value in number_dict.items():
+            print '有 ', key, ' 特徵的商品共有', value, '個'
+        
+
+class check_sales_volume_with_sections(object):
+    """
+    統計不同模型下，擁有各feature的商品的平均銷售量與獲選率
+    """
+    def __init__(self):
+        pass
+
+    def function(self, option):
+        """
+        input: 字串：沐浴乳、精華液、洗衣精
+        output: 列印結果
+        """
+        if option == '沐浴乳':
+            data = pd.read_csv('./bodywash/CR/result_bodywash_183.csv')
+            data = filter_look_time(data, 31)
+            features = ['bottle', '12H', 'is_cold', 'payment_ConvenienceStore'] # 沐浴乳的前三特徵
+        elif option == '精華液':
+            data = pd.read_csv('./essense/result_essence_CR_lk10.csv')
+            data = filter_look_time(data, 31)
+            features = ['is_bright', 'sunscreen', 'whitening'] # 精華液的前三特徵
+        elif option == '洗衣精':
+            data = pd.read_csv('./detergent/result_detergent_CR_226.csv')
+            data = filter_look_time(data, 61)
+            features = ['superstore', 'haveVideo', 'bottle'] # 洗衣精的前三特徵
+        
+        # 以下是join price在用的
+        # new_price = pd.read_csv('./bodywash/WI/WI_bodywash_3m_lk10.csv')
+        # data = join_price_for_CR(data, new_price)
+        print data.shape
+        data = self.join_sales_volume(data, option) # join銷售量
+        print data.shape
+        # data.to_csv('check.csv')
+        print option, '的平均獲選率', data[['label']].mean().values[0]
+        print option, '的平均銷售量', data[['sales_volume']].mean().values[0]
+
+        CR_sum_dict = {'High':0, 'Low':0}
+        SV_sum_dict = {'High':0, 'Low':0}
+        number_dict = {'High':0, 'Low':0}
+
+        for index, row in data.iterrows():
+            if row[features[0]] == 1 and row[features[1]] == 1: # 前兩個feature成立
+                CR_sum_dict['High'] += row['label']
+                SV_sum_dict['High'] += row['sales_volume']
+                number_dict['High'] += 1
+            if row[features[2]] == 1 and row[features[3]] == 1: # 後兩個feature成立
+                CR_sum_dict['Low'] += row['label']
+                SV_sum_dict['Low'] += row['sales_volume']
+                number_dict['Low'] += 1
+        
+        self._printing(CR_sum_dict, SV_sum_dict, number_dict)
+
+    def join_sales_volume(self, data, option):
+        if option == '沐浴乳':
+            sales_volume_data = pd.read_excel('~/Dropbox/商品特徵偏好分析/分析/沐浴乳_銷售數量對應WI與CR.xlsx')
+            sales_volume_data = sales_volume_data[['GID_1', 'sales_volume']]
+            return pd.merge(data, sales_volume_data, left_on='GID', right_on='GID_1')
+        
+        elif option == '精華液':
+            sales_volume_data = pd.read_excel('~/Dropbox/商品特徵偏好分析/分析/精華液_銷售數量對應WI與CR.xlsx')
+            sales_volume_data = sales_volume_data[['GID_1', 'sales_volume']]
+            return pd.merge(data, sales_volume_data, left_on='GID', right_on='GID_1')
+
+        elif option == '洗衣精':
+            sales_volume_data = pd.read_excel('~/Dropbox/商品特徵偏好分析/分析/洗衣精_銷售數量對應WI與CR.xlsx')
+            sales_volume_data = sales_volume_data[['GID_1', 'sales_volume']]
+            return pd.merge(data, sales_volume_data, left_on='GID', right_on='GID_1')
+
+    def _printing(self, CR_sum_dict, SV_sum_dict, number_dict):
+        for key, value in CR_sum_dict.items():
+            print key, '的獲選率', value / float(number_dict[key])
+        for key, value in SV_sum_dict.items():
+            print key, '的銷售量', value / float(number_dict[key])
+        for key, value in number_dict.items():
+            print key, '有', value, '個'
+
+
 
 if __name__ == '__main__':
     # obj = process_description()
     # obj.get_seg_list('溫柔洗淨衣物，呵護你的肌膚?')
     # obj.high_and_low_kw()
-    obj = join_production_country()
-    obj.function()
+    # obj = join_production_country()
+    # obj.function()
+    import sys
+    # obj = check_sales_volume_with_top_features()
+    # obj.function(sys.argv[1])
+
+    obj = check_sales_volume_with_sections()
+    obj.function(sys.argv[1])
 
 
 """
