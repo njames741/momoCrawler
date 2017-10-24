@@ -1,24 +1,29 @@
-# -*- coding: utf-8 -*-
+"""
+momo類別進行以下工作
+- momo購物網爬蟲
+- 由 feature_extraction 模塊進行特徵萃取工作
+- 產生特徵表
+
+直接執行此檔案的使用方式：
+需輸入三個系統參數
+- arg1 : 字母 i 或 c，如果是第一次產生資料表，輸入 i ，若是爬蟲到一半斷掉，可輸入 c 續寫資料表
+- arg2 : 輸入檔名（輸入檔格式參考create_csv函式的註解）
+- arg3 : 輸出檔名
+"""
 import requests
 from bs4 import BeautifulSoup
 from pprint import pprint
-import re
 import sys
-import io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-# import cStringIO
-import urllib.request, urllib.error, urllib.parse
-from PIL import Image
 import pandas as pd
 import csv
 import os.path
 import time
-import numpy as np
-import jieba
 import traceback
 
+from feature_extraction import *
+from request_config import HEADER, COOKIES
 
-
+# 計算執行時間
 def timeit(method):
 	def timed(*args, **kw):
 		ts = time.time()
@@ -33,25 +38,12 @@ class SystemInputError(Exception):
 
 class momo(object):
 	def __init__(self, status):
-		self.headers = {
-			'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.107 Safari/537.36',
-		}
-		self.headers2 = {
-			'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106 Safari/537.36',
-		}
-		self.cookies = {
-			'_ts_id': '999999999999999999',
-		}
-		self.cookies2 = {
-			'_ts_id': '888888888888888888',
-		}
 		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', \
 			'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', \
 			'preferential_count', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', \
 			'12H', 'shopcart', 'superstore', 'productFormatCount', 'attributesListArea', \
 			'haveVideo', 'Taiwan','EUandUS','Germany','UK','US','Japan','Malaysia','Australia','other', \
 		 	'supplementary', 'bottle', 'combination', 'look_times', 'label'))
-		# outputOriginList = [u'台灣', u'歐美', u'德國', u'英國', u'美國', u'日本', u'馬來西亞', u'澳洲', u'其他']
 		if status == 'c':
 			self.with_header = False
 		elif status == 'i':
@@ -59,397 +51,43 @@ class momo(object):
 		else:
 			raise SystemInputError('系統參數請輸入: c -> 續寫, i -> 從頭開始執行')
 
-		jieba.set_dictionary('dict.txt.big')
-
-	# 價錢
-	def price(self,soup):
-		try:
-			price = soup.find('li','special').find('span').text
-		except:
-			price = soup.find('ul' ,'prdPrice').find('li').find('del').text
-		price = price.replace(",","")
-		# print "price: ",int(price)
-		return int(price)
-
-	# 折扣
-	def discount(self,soup):
-		try:
-			OldPrice = soup.find('ul' ,'prdPrice').find('li').find('del').text.replace(",","")
-			NewPrice = soup.find('li','special').find('span').text.replace(",","")
-			# print "discount: ",int(OldPrice) - int(NewPrice)
-			return (int(OldPrice) - int(NewPrice))
-		except:
-			# print "discount: ",0
-			return 0
-
-	# 付款方式(one hot)
-	def payment(self,soup):
-		paymentList = ['信用卡','貨到付款', '超商付款', 'ATM', 'iBon']
-		paymentFeature = list()
-		payment = soup.find('dl','payment').text.split("\n")
-		for i in paymentList:
-			if i in payment:
-				paymentFeature.append(1)
-			else:
-				paymentFeature.append(0)
-		# print "payment",paymentFeature
-		return paymentFeature
-
-	# 贈品(數量)
-	def preferentialCount(self,soup):
-		try:
-			preferential = soup.find('dl','preferential').findAll('dd')
-			return len(preferential)
-		except:
-			return 0
-
-	# 庫存倒數
-	def reciprocal(self,soup):
-		reciprocal = soup.select('#goodsDtCount_001')[0]['value']
-		if int(reciprocal) <= 5:
-			return 1
-		else:
-			return 0
-
-	@timeit
-	def image_analysis(self, soup):
-		# vendordetailview 是整個「商品特色」頁面的標籤
-		vendordetailview = soup.find('div', class_='vendordetailview')
-		iframe = vendordetailview.find('iframe')
-		iframesrc = iframe['src']
-		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
-
-		# time.sleep(3)
-		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
-		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
-
-		opener = urllib.request.build_opener()
-		opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
-		imgs = iframe_soup.find_all('img')
-
-		if len(imgs) == 0:
-			return 0, [0, 0], [0, 0]
-
-		height_sum = 0
-		r_sum, b_sum = 0, 0
-		brightness_sum = 0
-
-		for img in imgs:
-			print((img['src']))
-			imgsrc = img['src'].split('?')[0]
-			if imgsrc[:6] == '/exper':
-				imgsrc = 'https://www.momoshop.com.tw' + imgsrc
-			if imgsrc[:5] == '//img':
-				imgsrc = 'https:' + imgsrc
-
-			if imgsrc[8:12] == 'img1' or imgsrc[8:12] == 'img2':
-				imgsrc = 'https://img3' + imgsrc[12:]
-			imgsrc = imgsrc.replace('"','')
-			
-			try:
-				image_file = opener.open(imgsrc)
-				# print(imgsrc+"ss")
-			except Exception as e:
-				print('==============img url錯誤====================')
-				traceback.print_exc()
-				print(imgsrc)
-
-			# temp_image = io.StringIO(str(image_file.read(),'utf-8'))
-			temp_image = io.BytesIO(urllib.request.urlopen(imgsrc).read())
-			image = Image.open(temp_image)
-
-			# 處理色溫
-			rgb_sum_list = self.color_temp(image)
-			r_sum += rgb_sum_list[0]
-			b_sum += rgb_sum_list[2]
-
-			# 處理高度
-			width, height = image.size
-			height_sum += height
-
-			# 處理亮度
-			brightness_sum += self.get_brightness(image)
-
-		# 色溫
-		if r_sum > b_sum: temp_list = [1, 0]
-		else: temp_list = [0, 1]
-
-		# 平均亮度計算
-		brightness_avg = brightness_sum / len(imgs)
-		if brightness_avg > 127: brightness_list = [1, 0]
-		else: brightness_list = [0, 1]
-
-		# print '圖片高度: ', height_sum
-		# print '色溫', temperature # 暖是1，暗是0
-		# print '亮度', brightness # 亮是1，暗是0
-		return height_sum, temp_list, brightness_list
-
-	def get_brightness(self, img):
-		width, height = img.size
-		pixels = img.load()
-		pixels_avg_list = list()
-		for w in range(width):
-			for h in range(height):
-				pixels_avg_list.append((pixels[w, h][0] + pixels[w, h][1] + pixels[w, h][2]) / int(3))
-		pixels_avg_array = np.array(pixels_avg_list)
-		pix_mean = pixels_avg_array.mean()
-		return  pix_mean
-
-	def color_temp(self, img):
-		img_format = img.format
-		# print img_format
-		width, height = img.size
-		pixels = img.load()
-		channel_length = len(pixels[0, 0])
-		pixels_sum = [0, 0, 0]
-		RGB_value = [0, 0, 0]
-		for w in range(width):
-			for h in range(height):
-				if channel_length == 3:
-					RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
-				elif channel_length == 4:
-					RGB_value = self.deal_with_RGBA_image(pixels[w, h])
-				for x in range(3):
-					pixels_sum[x] += RGB_value[x]
-		return pixels_sum
-
-	# 處理png圖片
-	def deal_with_RGBA_image(self, RGBA_tuple):
-		RGBA_list = [0, 0, 0, 0]
-		RGBA_list[0], RGBA_list[1], RGBA_list[2], RGBA_list[3] = RGBA_tuple
-		return RGBA_list[:3]
-
-	# 配送方式
-	def transport(self,soup):
-		transportList = [] 
-		first = soup.select('#first')
-		if first != []:
-			transportList.append(1)
-		else:
-			transportList.append(0)
-
-		shopcart = soup.select('#shopcart')
-		if shopcart != []:
-			transportList.append(1)
-		else:
-			transportList.append(0)
-
-		superstore = soup.select('#superstore')
-		if superstore != []:
-			transportList.append(1)
-		else:
-			transportList.append(0)
-
-		return transportList
-
-	# 有的尺寸數量
-	def productFormatCount(self, soup):
-		productFormat = soup.find('select','CompareSel')
-		productFormatList = productFormat.findAll('option')
-		productFormatListLen = len(productFormatList)
-		if productFormatListLen > 1:
-			productFormatListLen = productFormatListLen-1
-		return productFormatListLen
-
-	#在商品規格欄位中有無使用表格
-	def attributesListArea(self, soup):
-		ListArea = soup.find('div','attributesListArea')
-		if ListArea != None:
-			return 1
-		else:
-			return 0
-
-	#有無包含影片
-	def haveVideo(self, soup):
-		vendordetailview = soup.find('div', class_='vendordetailview')
-		iframe = vendordetailview.find('iframe')
-		iframesrc = iframe['src']
-		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
-
-		# time.sleep(3)
-		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
-		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
-		video = iframe_soup.findAll('iframe')
-
-		if len(video) >= 1:
-			return 1
-		else:
-			return 0
-
-
-	#產地
-	def origin(self, soup):
-		ListArea = soup.find('div','attributesListArea')
-		specificationArea = soup.find('div','vendordetailview specification')
-		specificationArea = specificationArea.find('p')
-
-		originList = ['台灣','臺灣','德國','英國','歐美','歐洲','日本','美國','其他','其它','馬來西亞'\
-					,'法國','東南亞','亞州','韓國','中國','大陸','中國大陸','澳洲']
-		originTypeList = ['產地','原產地','製造','生產','生產地','製造地']
-
-		outputOriginList = ['台灣', '歐美', '德國', '英國', '美國', '日本', '馬來西亞', '澳洲', '其他']
-		outputList = [0,0,0,0,0,0,0,0,0]
-		finalOrigin = ''
-
-		vendordetailview = soup.find('div', class_='vendordetailview')
-		iframe = vendordetailview.find('iframe')
-		iframesrc = iframe['src']
-		iframe_web = 'https://www.momoshop.com.tw' + iframesrc
-		iframe_requests = requests.get(iframe_web, headers=self.headers, cookies=self.cookies)
-		iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
-		iframe_soup = iframe_soup.text.replace('\n','').replace(' ','')
-		iframeWords = jieba.cut(iframe_soup, cut_all=False)
-		iframeWords = ("/".join(iframeWords)).split('/')
-		originTypeIndexiframe = [i for i,v in enumerate(iframeWords) if v in originTypeList]
-
-		specificationArea = specificationArea.text.replace('\n','').replace(' ','')
-		words = jieba.cut(specificationArea, cut_all=False)
-		words = ("/".join(words)).split('/')
-		#找各種產地字詞的index
-		originTypeIndex = [i for i,v in enumerate(words) if v in originTypeList]
-		# for i in iframeWords:
-		# 	print i
-		
-		# print originTypeIndexiframe
-
-		#先找表格下面的文字中有無產地
-		if originTypeIndex:
-			print("----找表格下文字----")
-			temp = []
-			for i in originTypeIndex:
-				if (i-6) < 0:
-					start = 0
-				else:
-					start = (i-6)
-				temp += words[start:i+6]
-			temp = list(set(temp))
-			# for i in temp:
-			# 	print i
-			origin =  [val for val in originList if val in temp]
-			if origin:
-				finalOrigin = origin[0]
-		#再找表格
-		print(ListArea.findAll('th'))
-		if ListArea.findAll('th') != [] and finalOrigin == '': 
-			print("----找表格----")
-			ListArea2 = ListArea.findAll('th')
-			ListArea3 = ListArea.findAll('ul')
-			ListArea2 = [x.text for x in ListArea2]
-			ListArea3 = [x.text for x in ListArea3]
-			dictionary = dict(list(zip(ListArea2, ListArea3)))
-			print(dictionary)
-			if '產地' in dictionary:
-				print(dictionary['產地'])
-				finalOrigin = dictionary['產地']
-			else:
-			    print('not exist')
-			
-		#再找商品特色頁面
-		if originTypeIndexiframe and finalOrigin == '':
-			print("----找商品特色頁面----")
-			temp = []
-			for i in originTypeIndexiframe:
-				if (i-6) < 0:
-					start = 0
-				else:
-					start = (i-6)
-				temp += iframeWords[start:i+6]
-			temp = list(set(temp))
-			origin =  [val for val in originList if val in temp]
-			if origin:
-				finalOrigin = origin[0]	
-		if finalOrigin == '':
-			finalOrigin = 'N'
-			
-		for i in range(len(outputOriginList)):
-			if finalOrigin == outputOriginList[i]:
-				outputList[i] = 1
-
-		return outputList
-
-	#找出銷售單位(瓶or補充包or組合)
-	def unit(self, soup):
-		unitList = [0,0,0]
-		supplement = ['補充','包','袋']
-		bottle = ['瓶','罐']
-		ListArea = soup.find('div','attributesListArea')
-		#先找表格中有沒有"單位"欄位
-		if ListArea != None:
-			ListArea2 = ListArea.findAll('th')
-			ListArea3 = ListArea.findAll('ul')
-			ListArea2 = [x.text for x in ListArea2]
-			ListArea3 = [x.text for x in ListArea3]
-			dictionary = dict(list(zip(ListArea2, ListArea3)))
-			try:
-				unitType = dictionary['單位']
-				for i in supplement:
-					if i in unitType:
-						unitList = [0,1,0]
-					elif '組' in unitType:
-						unitList = [0,0,1]
-					else:
-						unitList = [1,0,0]
-			except:
-				pass
-		#若沒找到則比對商品名稱中的關鍵字
-		if unitList == [0,0,0]:
-			goodName = soup.find('div','prdnoteArea').find('h1').text
-			supplementBoolean = False
-			bottleBoolean = False
-			for i in supplement:
-				if i in goodName:
-					supplementBoolean = True
-			for i in bottle:
-				if i in goodName:
-					bottleBoolean = True
-			if (supplementBoolean and bottleBoolean) or '組' in goodName:
-				unitList = [0,0,1]
-			elif supplementBoolean:
-				unitList = [0,1,0]
-			elif bottleBoolean:
-				unitList = [1,0,0]
-			#若都沒有找到關鍵字，就算是瓶裝
-			else:
-				unitList = [1,0,0]
-
-		return unitList
-
 	@timeit
 	def get_rows(self, goods_icode, look_num, label):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
 		time.sleep(1)
-		h = requests.get(web, headers=self.headers, cookies=self.cookies)
+		h = requests.get(web, headers=HEADER, cookies=COOKIES)
 		soup = BeautifulSoup(h.text, 'html.parser')
 
 		row_list = list()
 		row_list.append(goods_icode)
-		row_list.append(self.price(soup))
-		row_list.append(self.discount(soup))
-		row_list += self.payment(soup)
-		row_list.append(self.preferentialCount(soup))
-		img_result_list = self.image_analysis(soup)
+		row_list.append(price(soup))
+		row_list.append(discount(soup))
+		row_list += payment(soup)
+		row_list.append(preferentialCount(soup))
+		img_result_list = image_analysis(soup)
 		row_list.append(img_result_list[0])
 		row_list += img_result_list[1]
 		row_list += img_result_list[2]
-		row_list += self.transport(soup)
-		row_list.append(self.productFormatCount(soup))
-		row_list.append(self.attributesListArea(soup))
-		row_list.append(self.haveVideo(soup))
-		row_list += self.origin(soup)
-		row_list += self.unit(soup)
+		row_list += transport(soup)
+		row_list.append(productFormatCount(soup))
+		row_list.append(attributesListArea(soup))
+		row_list.append(haveVideo(soup))
+		row_list += origin(soup)
+		row_list += unit(soup)
 		row_list.append(look_num)
 		row_list.append(label)
-		
-
-
 		print(row_list)
-
-		# for key,value in row_list[0].items():
-		# 	print key,value 
 
 		# return row_list
 
 	def create_csv(self, input_file_name, output_file_name):
+		"""
+		Args:
+			- 輸入檔名 (輸入為csv檔，三個columns分別為  1. GID 2. 計算完成的Competitiveness Metric 3. 來自op21資料表的真實price值)
+			- 輸出檔名
+		Output:
+			- 完整特徵與Label資料表，可直接用於模型訓練
+		"""
 		gid_list = pd.read_csv(input_file_name).values
 		requests_count = 0
 		successful = 0
@@ -459,7 +97,6 @@ class momo(object):
 		for row in gid_list:
 			print('---------------------------')
 			requests_count += 1
-			# if requests_count == 10: break
 			print((str(int(row[0])), row[1]))
 			try:
 				self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[3], row[1])
@@ -476,7 +113,6 @@ class momo(object):
 			except Exception as e:
 				abandoned += 1
 				print('爬不到，抱歉')
-				# print e
 				traceback.print_exc()
 				if str(e) == "'NoneType' object has no attribute 'find'":
 					no_page_count += 1
@@ -487,40 +123,11 @@ class momo(object):
 		print(('處理失敗總數量: ', abandoned))
 		print(('無頁面總數量: ', no_page_count))
 
-	# def testing(self, img_url):
-	# 	opener = urllib2.build_opener()
-	# 	opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
-	# 	image_file = opener.open(img_url)
-	# 	temp_image = cStringIO.StringIO(image_file.read())
-	# 	img = Image.open(temp_image)
-	# 	print self.color_temp_2(img)
-
-	# def color_temp_2(self, img):
-	# 	img_format = img.format
-	# 	print img_format
-	# 	width, height = img.size
-	# 	pixels = img.load()
-	# 	pixels_sum = [0, 0, 0]
-	# 	RGB_value = [0, 0, 0]
-	# 	print pixels[45, 23]
-	# 	for w in range(width):
-	# 		for h in range(height):
-	# 			if img_format == 'JPEG':
-	# 				RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
-	# 			elif img_format == 'PNG':
-	# 				RGB_value = self.deal_with_RGBA_image(pixels[w, h])
-	# 			else:
-	# 				print '影像格式不是JPEG或PNG'
-	# 				RGB_value[0], RGB_value[1], RGB_value[2] = pixels[w, h]
-	# 			for x in range(3):
-	# 				pixels_sum[x] += RGB_value[x]
-	# 	return pixels_sum
 
 if __name__ == '__main__':
 	import time
 	import sys
-	# 如果是從某個GID開始續寫，輸入小寫c
-	# 如果是從頭開始跑，輸入小寫i
+	
 	# obj = momo(sys.argv[1])
 
 	# start = time.time()
@@ -531,4 +138,4 @@ if __name__ == '__main__':
 	# print "總花費時間", time_cost, "秒"
 
 	obj = momo('i')
-	obj.get_rows(sys.argv[1],123,321)
+	obj.get_rows('3812355', 123, 321)
