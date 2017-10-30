@@ -9,6 +9,8 @@ import requests
 import re
 import io
 import sys
+import time
+import traceback
 from PIL import Image
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -102,7 +104,7 @@ def image_analysis(soup):
 			print('==============img url錯誤====================')
 			traceback.print_exc()
 			print(imgsrc)
-		
+		time.sleep(1)
 		temp_image = io.BytesIO(urllib.request.urlopen(imgsrc).read())
 		image = Image.open(temp_image)
 

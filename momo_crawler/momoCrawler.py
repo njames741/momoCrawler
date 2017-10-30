@@ -9,7 +9,7 @@ momo類別進行以下工作
 - arg1 : 字母 i 或 c，如果是第一次產生資料表，輸入 i ，若是爬蟲到一半斷掉，可輸入 c 續寫資料表
 - arg2 : 輸入檔名（輸入檔格式參考create_csv函式的註解）
 - arg3 : 輸出檔名
-- arg4 : detergent、bodywash、
+- arg4 : detergent、bodywash、essense
 """
 import requests
 from bs4 import BeautifulSoup
@@ -21,8 +21,8 @@ import os.path
 import time
 import traceback
 
-from utils.utils import *
 from configs.configs import *
+from utils.get_features import *
 
 # 計算執行時間
 def timeit(method):
@@ -38,13 +38,16 @@ class SystemInputError(Exception):
     pass
 
 class momo(object):
-	def __init__(self, status):
-		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', \
-			'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', \
-			'preferential_count', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', \
-			'12H', 'shopcart', 'superstore', 'productFormatCount', 'attributesListArea', \
-			'haveVideo', 'Taiwan','EUandUS','Germany','UK','US','Japan','Malaysia','Australia','other', \
-		 	'supplementary', 'bottle', 'combination', 'look_times', 'label'))
+	def __init__(self, status, product_type):
+		self.product_type = product_type
+
+		if product_type == 'd':
+			self.result_df = pd.DataFrame(columns=DETERGENT_FEATURE_LIST)
+		elif product_type == 'b':
+			self.result_df = pd.DataFrame(columns=BODYWASH_FEATURE_LIST)
+		elif product_type == 'e':
+			self.result_df = pd.DataFrame(columns=ESSENCE_FEATURE_LIST)
+
 		if status == 'c':
 			self.with_header = False
 		elif status == 'i':
@@ -59,24 +62,13 @@ class momo(object):
 		h = requests.get(web, headers=HEADER, cookies=COOKIES)
 		soup = BeautifulSoup(h.text, 'html.parser')
 
-		row_list = list()
-		row_list.append(goods_icode)
-		row_list.append(price(soup))
-		row_list.append(discount(soup))
-		row_list += payment(soup)
-		row_list.append(preferentialCount(soup))
-		img_result_list = image_analysis(soup)
-		row_list.append(img_result_list[0])
-		row_list += img_result_list[1]
-		row_list += img_result_list[2]
-		row_list += transport(soup)
-		row_list.append(productFormatCount(soup))
-		row_list.append(attributesListArea(soup))
-		row_list.append(haveVideo(soup))
-		row_list += origin(soup)
-		row_list += unit(soup)
-		row_list.append(look_num)
-		row_list.append(label)
+		if self.product_type == 'd':
+			row_list = get_detergent_features(soup, goods_icode)
+		elif self.product_type == 'b':
+			row_list = get_bodywash_features(soup, goods_icode)
+		elif self.product_type == 'e':
+			row_list = get_essense_features(soup, goods_icode)
+		
 		print(row_list)
 
 		# return row_list
@@ -138,5 +130,5 @@ if __name__ == '__main__':
 	# time_cost = end - start
 	# print "總花費時間", time_cost, "秒"
 
-	obj = momo('i')
+	obj = momo('i', 'd')
 	obj.get_rows('3812355', 123, 321)
