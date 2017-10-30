@@ -1,6 +1,6 @@
 from utils.utils import *
 
-def get_detergent_features(soup, goods_icode):
+def get_detergent_features(soup, goods_icode, look_num):
     """
     ['GID', 'unitPrice', 'price', 'volume', 'img_height', 'is_warm',
      'is_cold', 'is_bright', 'is_dark', '12H', 'superstore', 'haveVideo',
@@ -27,7 +27,7 @@ def get_detergent_features(soup, goods_icode):
     row_list.append(label)
     return row_list
 
-def get_bodywash_features():
+def get_bodywash_features(soup, goods_icode, look_num):
     """
     ['GID', 'unitPrice', 'haveOrigin', 'volume', 'supplementary', 'bottle',
      'combination', 'price', 'payment_ConvenienceStore', 'img_height',
@@ -36,7 +36,7 @@ def get_bodywash_features():
     """
     pass
 
-def get_essense_features():
+def get_essense_features(soup, goods_icode, look_num):
     """
     ['GID', 'label', 'price', 'haveOrigin', 'unitPrice', 'volume',
      'discount', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark',

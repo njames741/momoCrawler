@@ -86,7 +86,6 @@ def image_analysis(soup):
 	brightness_sum = 0
 
 	for img in imgs:
-		print((img['src']))
 		imgsrc = img['src'].split('?')[0]
 		if imgsrc[:6] == '/exper':
 			imgsrc = 'https://www.momoshop.com.tw' + imgsrc
@@ -96,14 +95,15 @@ def image_analysis(soup):
 		if imgsrc[8:12] == 'img1' or imgsrc[8:12] == 'img2':
 			imgsrc = 'https://img3' + imgsrc[12:]
 		imgsrc = imgsrc.replace('"','')
+		print(imgsrc + '  <======== 去爬的圖片網址')
 		
 		try:
 			image_file = opener.open(imgsrc)
-			# print(imgsrc+"ss")
+			print('成功的', imgsrc)
 		except Exception as e:
 			print('==============img url錯誤====================')
 			traceback.print_exc()
-			print(imgsrc)
+			print('失敗的', imgsrc)
 		time.sleep(1)
 		temp_image = io.BytesIO(urllib.request.urlopen(imgsrc).read())
 		image = Image.open(temp_image)
