@@ -9,7 +9,7 @@ momo類別進行以下工作
 - arg1 : 字母 i 或 c，如果是第一次產生資料表，輸入 i ，若是爬蟲到一半斷掉，可輸入 c 續寫資料表
 - arg2 : 輸入檔名（輸入檔格式參考create_csv函式的註解）
 - arg3 : 輸出檔名
-- arg4 : detergent、bodywash、
+- arg4 : detergent、bodywash、essense
 """
 import requests
 from bs4 import BeautifulSoup
@@ -21,8 +21,9 @@ import os.path
 import time
 import traceback
 
-from utils.utils import *
 from configs.configs import *
+# from utils.get_features import *
+from utils.utils import *
 
 # 計算執行時間
 def timeit(method):
@@ -35,16 +36,13 @@ def timeit(method):
 	return timed
 
 class SystemInputError(Exception):
-    pass
+	pass
 
 class momo(object):
-	def __init__(self, status):
-		self.result_df = pd.DataFrame(columns=('GID', 'price', 'discount', 'payment_CreditCard', \
-			'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', \
-			'preferential_count', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', \
-			'12H', 'shopcart', 'superstore', 'productFormatCount', 'attributesListArea', \
-			'haveVideo', 'Taiwan','EUandUS','Germany','UK','US','Japan','Malaysia','Australia','other', \
-		 	'supplementary', 'bottle', 'combination', 'look_times', 'label'))
+	def __init__(self, status, product_type):
+		self.product_type = product_type
+		self.result_df = pd.DataFrame(columns=RESULT_FEATURE_LIST)
+
 		if status == 'c':
 			self.with_header = False
 		elif status == 'i':
@@ -53,20 +51,28 @@ class momo(object):
 			raise SystemInputError('系統參數請輸入: c -> 續寫, i -> 從頭開始執行')
 
 	@timeit
-	def get_rows(self, goods_icode, look_num, label):
+	def get_rows(self, goods_icode, look_num, label, price):
 		web = 'https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=' + goods_icode
 		time.sleep(1)
 		h = requests.get(web, headers=HEADER, cookies=COOKIES)
 		soup = BeautifulSoup(h.text, 'html.parser')
+		print('-------------------------')
+		print('洗衣精的columns長度應是：', len(DETERGENT_FEATURE_LIST))
+		print(DETERGENT_FEATURE_LIST)
+		print('沐浴乳的columns長度應是：', len(BODYWASH_FEATURE_LIST))
+		print(BODYWASH_FEATURE_LIST)
+		print('精華液的columns長度應是：', len(ESSENCE_FEATURE_LIST))
+		print(ESSENCE_FEATURE_LIST)
+		print('-------------------------')
 
 		row_list = list()
 		row_list.append(goods_icode)
-		row_list.append(price(soup))
+		row_list.append(price)
 		row_list.append(discount(soup))
-		row_list += payment(soup)
+		row_list += payment(soup) # 5維 ['信用卡','貨到付款', '超商付款', 'ATM', 'iBon'] 
 		row_list.append(preferentialCount(soup))
 		img_result_list = image_analysis(soup)
-		row_list.append(img_result_list[0])
+		row_list.append(img_result_list[0]) # 圖片共5維
 		row_list += img_result_list[1]
 		row_list += img_result_list[2]
 		row_list += transport(soup)
@@ -77,9 +83,8 @@ class momo(object):
 		row_list += unit(soup)
 		row_list.append(look_num)
 		row_list.append(label)
-		print(row_list)
+		return row_list
 
-		# return row_list
 
 	def create_csv(self, input_file_name, output_file_name):
 		"""
@@ -100,7 +105,9 @@ class momo(object):
 			requests_count += 1
 			print((str(int(row[0])), row[1]))
 			try:
-				self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[3], row[1])
+				# get_rows 要傳入的 goods_icode, look_num, label
+				# gid,cr,look,price
+				self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[2], row[1], row[3])
 				if first_write and self.with_header:
 					self.result_df.to_csv(output_file_name, mode='a', index=False)
 					first_write = False
@@ -124,19 +131,31 @@ class momo(object):
 		print(('處理失敗總數量: ', abandoned))
 		print(('無頁面總數量: ', no_page_count))
 
+		_drop_column_by_category(output_file_name)
+	
+	def _drop_column_by_category(self, output_file_name):
+		df = pd.read_csv(output_file_name)
+		print(df)
+		if self.product_type == 'd':
+			df.drop
+		elif self.product_type == 'b':
+			pass
+		elif self.product_type == 'e':
+			pass
+		
+
 
 if __name__ == '__main__':
 	import time
 	import sys
 	
 	# obj = momo(sys.argv[1], sys.argv[4])
-
+	obj = momo('i', 'd')
 	# start = time.time()
 	# obj.create_csv(sys.argv[2], sys.argv[3])
+	# obj.create_csv('testing_data.csv', 'temp.csv')
+	obj._drop_column_by_category('./temp.csv')
 	# end = time.time()
 
 	# time_cost = end - start
 	# print "總花費時間", time_cost, "秒"
-
-	obj = momo('i')
-	obj.get_rows('3812355', 123, 321)

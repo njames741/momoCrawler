@@ -12,30 +12,30 @@ import sys
 import time
 import traceback
 from PIL import Image
-# sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-from sample.configs.configs import HEADER, COOKIES
+from configs.configs import HEADER, COOKIES
 
-jieba.set_dictionary('./op21106/spark/src/sample/dict.txt.big')
+jieba.set_dictionary('./dict.txt.big')
 
-# # 價錢
-# def price(soup):
-# 	try:
-# 		price = soup.find('li','special').find('span').text
-# 	except:
-# 		price = soup.find('ul' ,'prdPrice').find('li').find('del').text
-# 	price = price.replace(",","")
-# 	# print "price: ",int(price)
-# 	return int(price)
+# 價錢
+def price(soup):
+	try:
+		price = soup.find('li','special').find('span').text
+	except:
+		price = soup.find('ul' ,'prdPrice').find('li').find('del').text
+	price = price.replace(",","")
+	# print "price: ",int(price)
+	return int(price)
 
-# # 折扣
-# def discount(soup):
-# 	try:
-# 		OldPrice = soup.find('ul' ,'prdPrice').find('li').find('del').text.replace(",","")
-# 		NewPrice = soup.find('li','special').find('span').text.replace(",","")
-# 		return (int(OldPrice) - int(NewPrice))
-# 	except:
-# 		return 0
+# 折扣
+def discount(soup):
+	try:
+		OldPrice = soup.find('ul' ,'prdPrice').find('li').find('del').text.replace(",","")
+		NewPrice = soup.find('li','special').find('span').text.replace(",","")
+		return (int(OldPrice) - int(NewPrice))
+	except:
+		return 0
 
 # 付款方式(one hot encoding)
 def payment(soup):
@@ -49,21 +49,21 @@ def payment(soup):
 			paymentFeature.append(0)
 	return paymentFeature
 
-# # 贈品(數量)
-# def preferentialCount(soup):
-# 	try:
-# 		preferential = soup.find('dl','preferential').findAll('dd')
-# 		return len(preferential)
-# 	except:
-# 		return 0
+# 贈品(數量)
+def preferentialCount(soup):
+	try:
+		preferential = soup.find('dl','preferential').findAll('dd')
+		return len(preferential)
+	except:
+		return 0
 
-# # 庫存倒數
-# def reciprocal(soup):
-# 	reciprocal = soup.select('#goodsDtCount_001')[0]['value']
-# 	if int(reciprocal) <= 5:
-# 		return 1
-# 	else:
-# 		return 0
+# 庫存倒數
+def reciprocal(soup):
+	reciprocal = soup.select('#goodsDtCount_001')[0]['value']
+	if int(reciprocal) <= 5:
+		return 1
+	else:
+		return 0
 
 def image_analysis(soup):
 	# vendordetailview 是整個「商品特色」頁面的標籤
@@ -180,31 +180,30 @@ def transport(soup):
 	else:
 		transportList.append(0)
 
-	#超商取貨跟超商付款一定同時成立，故只選其一當作feature
-	# superstore = soup.select('#superstore')
-	# if superstore != []:
-	# 	transportList.append(1)
-	# else:
-	# 	transportList.append(0)
+	superstore = soup.select('#superstore')
+	if superstore != []:
+		transportList.append(1)
+	else:
+		transportList.append(0)
 
 	return transportList
 
-# # 有的尺寸數量
-# def productFormatCount(soup):
-# 	productFormat = soup.find('select','CompareSel')
-# 	productFormatList = productFormat.findAll('option')
-# 	productFormatListLen = len(productFormatList)
-# 	if productFormatListLen > 1:
-# 		productFormatListLen = productFormatListLen-1
-# 	return productFormatListLen
+# 有的尺寸數量
+def productFormatCount(soup):
+	productFormat = soup.find('select','CompareSel')
+	productFormatList = productFormat.findAll('option')
+	productFormatListLen = len(productFormatList)
+	if productFormatListLen > 1:
+		productFormatListLen = productFormatListLen-1
+	return productFormatListLen
 
-# # 在商品規格欄位中有無使用表格
-# def attributesListArea(soup):
-# 	ListArea = soup.find('div','attributesListArea')
-# 	if ListArea != None:
-# 		return 1
-# 	else:
-# 		return 0
+# 在商品規格欄位中有無使用表格
+def attributesListArea(soup):
+	ListArea = soup.find('div','attributesListArea')
+	if ListArea != None:
+		return 1
+	else:
+		return 0
 
 # 有無包含影片
 def haveVideo(soup):
@@ -226,11 +225,52 @@ def haveVideo(soup):
 # 產地
 def origin(soup):
 	ListArea = soup.find('div','attributesListArea')
-	# specificationArea = soup.find('div','vendordetailview specification')
-	# specificationArea = specificationArea.find('p')
+	specificationArea = soup.find('div','vendordetailview specification')
+	specificationArea = specificationArea.find('p')
+
+	originList = ['台灣','臺灣','德國','英國','歐美','歐洲','日本','美國','其他','其它','馬來西亞'\
+				,'法國','東南亞','亞州','韓國','中國','大陸','中國大陸','澳洲']
 	originTypeList = ['產地','原產地','製造','生產','生產地','製造地']
 
-	if ListArea.findAll('th') != []: 
+	outputOriginList = ['台灣', '歐美', '德國', '英國', '美國', '日本', '馬來西亞', '澳洲', '其他']
+	outputList = [0,0,0,0,0,0,0,0,0]
+	finalOrigin = ''
+
+	vendordetailview = soup.find('div', class_='vendordetailview')
+	iframe = vendordetailview.find('iframe')
+	iframesrc = iframe['src']
+	iframe_web = 'https://www.momoshop.com.tw' + iframesrc
+	iframe_requests = requests.get(iframe_web, headers=HEADER, cookies=COOKIES)
+	iframe_soup = BeautifulSoup(iframe_requests.text, 'html.parser')
+	iframe_soup = iframe_soup.text.replace('\n','').replace(' ','')
+	iframeWords = jieba.cut(iframe_soup, cut_all=False)
+	iframeWords = ("/".join(iframeWords)).split('/')
+	originTypeIndexiframe = [i for i,v in enumerate(iframeWords) if v in originTypeList]
+
+	specificationArea = specificationArea.text.replace('\n','').replace(' ','')
+	words = jieba.cut(specificationArea, cut_all=False)
+	words = ("/".join(words)).split('/')
+	# 找各種產地字詞的index
+	originTypeIndex = [i for i,v in enumerate(words) if v in originTypeList]
+
+	# 先找表格下面的文字中有無產地
+	if originTypeIndex:
+		print("----找表格下文字----")
+		temp = []
+		for i in originTypeIndex:
+			if (i-6) < 0:
+				start = 0
+			else:
+				start = (i-6)
+			temp += words[start:i+6]
+		temp = list(set(temp))
+		origin =  [val for val in originList if val in temp]
+		if origin:
+			finalOrigin = origin[0]
+
+	# 再找表格
+	print(ListArea.findAll('th'))
+	if ListArea.findAll('th') != [] and finalOrigin == '': 
 		print("----找表格----")
 		ListArea2 = ListArea.findAll('th')
 		ListArea3 = ListArea.findAll('ul')
@@ -240,21 +280,32 @@ def origin(soup):
 		print(dictionary)
 		if '產地' in dictionary:
 			print(dictionary['產地'])
-			# finalOrigin = dictionary['產地']
-			return 1
-		elif '商品規格' in dictionary:
-		    print(dictionary['商品規格'])
-		    dictionary['商品規格'] = dictionary['商品規格'].replace('\n','').replace('　','').replace('\t','').replace(' ','')
-		    words = jieba.cut(dictionary['商品規格'], cut_all=False)
-		    words = ("/".join(words)).split('/')
-		    originTypeIndex = [i for i,v in enumerate(words) if v in originTypeList]
-		    if originTypeIndex:
-		    	print("originTypeIndex")
-		    	return 1
-		    else:
-		    	return 0
-	else:
-		return 0
+			finalOrigin = dictionary['產地']
+		else:
+			print('not exist')
+		
+	# 再找商品特色頁面
+	if originTypeIndexiframe and finalOrigin == '':
+		print("----找商品特色頁面----")
+		temp = []
+		for i in originTypeIndexiframe:
+			if (i-6) < 0:
+				start = 0
+			else:
+				start = (i-6)
+			temp += iframeWords[start:i+6]
+		temp = list(set(temp))
+		origin =  [val for val in originList if val in temp]
+		if origin:
+			finalOrigin = origin[0] 
+	if finalOrigin == '':
+		finalOrigin = 'N'
+		
+	for i in range(len(outputOriginList)):
+		if finalOrigin == outputOriginList[i]:
+			outputList[i] = 1
+
+	return outputList
 
 # 找出銷售單位(瓶or補充包or組合)
 def unit(soup):
