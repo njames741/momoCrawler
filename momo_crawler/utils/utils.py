@@ -14,9 +14,9 @@ import traceback
 from PIL import Image
 # sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-from sample.configs.configs import HEADER, COOKIES
+from configs.configs import HEADER, COOKIES
 
-jieba.set_dictionary('./op21106/spark/src/sample/dict.txt.big')
+jieba.set_dictionary('dict.txt.big')
 
 # # 價錢
 # def price(soup):
@@ -37,7 +37,10 @@ jieba.set_dictionary('./op21106/spark/src/sample/dict.txt.big')
 # 	except:
 # 		return 0
 
-# 付款方式(one hot encoding)
+"""
+付款方式(one hot encoding)
+會產生5個columns: 'payment_credit_card', 'payment_arrival', 'payment_convenience_store', 'payment_ATM', 'payment_iBon'
+"""
 def payment(soup):
 	paymentList = ['信用卡','貨到付款', '超商付款', 'ATM', 'iBon']
 	paymentFeature = list()
@@ -65,6 +68,10 @@ def payment(soup):
 # 	else:
 # 		return 0
 
+"""
+圖片分析
+會產生5個columns : 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark'
+"""
 def image_analysis(soup):
 	# vendordetailview 是整個「商品特色」頁面的標籤
 	vendordetailview = soup.find('div', class_='vendordetailview')
@@ -165,7 +172,10 @@ def _deal_with_RGBA_image(RGBA_tuple):
 	RGBA_list[0], RGBA_list[1], RGBA_list[2], RGBA_list[3] = RGBA_tuple
 	return RGBA_list[:3]
 
-# 配送方式
+"""
+配送方式
+會產生2個columns：'12H', 'shopcart'
+"""
 def transport(soup):
 	transportList = [] 
 	first = soup.select('#first')
@@ -206,7 +216,7 @@ def transport(soup):
 # 	else:
 # 		return 0
 
-# 有無包含影片
+# 有無包含影片（一個column）
 def haveVideo(soup):
 	vendordetailview = soup.find('div', class_='vendordetailview')
 	iframe = vendordetailview.find('iframe')
@@ -223,11 +233,9 @@ def haveVideo(soup):
 		return 0
 
 
-# 產地
+# 產地(一個column)
 def origin(soup):
 	ListArea = soup.find('div','attributesListArea')
-	# specificationArea = soup.find('div','vendordetailview specification')
-	# specificationArea = specificationArea.find('p')
 	originTypeList = ['產地','原產地','製造','生產','生產地','製造地']
 
 	if ListArea.findAll('th') != []: 
@@ -240,7 +248,6 @@ def origin(soup):
 		print(dictionary)
 		if '產地' in dictionary:
 			print(dictionary['產地'])
-			# finalOrigin = dictionary['產地']
 			return 1
 		elif '商品規格' in dictionary:
 		    print(dictionary['商品規格'])
@@ -256,7 +263,10 @@ def origin(soup):
 	else:
 		return 0
 
-# 找出銷售單位(瓶or補充包or組合)
+"""
+找出銷售單位(瓶or補充包or組合)
+產生三個columns：'supplementary', 'bottle', 'combination'
+"""
 def unit(soup):
 	unitList = [0,0,0]
 	supplement = ['補充','包','袋']

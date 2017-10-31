@@ -14,11 +14,11 @@ COOKIES2 = {
     '_ts_id': '888888888888888888',
 }
 
-RESULT_FEATURE_LIST = ('GID', 'price', 'discount', 'payment_CreditCard', \
-            'payment_Arrival', 'payment_ConvenienceStore', 'payment_ATM', 'payment_iBon', \
-            'preferential_count', 'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', \
-            '12H', 'shopcart', 'superstore', 'productFormatCount', 'attributesListArea', \
-            'haveVideo', 'Taiwan','EUandUS','Germany','UK','US','Japan','Malaysia','Australia','other', \
+RESULT_FEATURE_LIST = ('GID', 'payment_credit_card', \
+            'payment_arrival', 'payment_convenience_store', 'payment_ATM', 'payment_iBon', \
+            'img_height', 'is_warm', 'is_cold', 'is_bright', 'is_dark', \
+            '12H', 'shopcart',\
+            'have_video', 'origin', \
             'supplementary', 'bottle', 'combination', 'look_times', 'label')
 
 DETERGENT_FEATURE_LIST = ['GID', 'unitPrice', 'price', 'volume', 'img_height', 'is_warm',\

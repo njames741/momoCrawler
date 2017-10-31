@@ -22,7 +22,6 @@ import time
 import traceback
 
 from configs.configs import *
-# from utils.get_features import *
 from utils.utils import *
 
 # 計算執行時間
@@ -35,20 +34,11 @@ def timeit(method):
 		return result
 	return timed
 
-class SystemInputError(Exception):
-	pass
 
 class momo(object):
-	def __init__(self, status, product_type):
+	def __init__(self, product_type):
 		self.product_type = product_type
 		self.result_df = pd.DataFrame(columns=RESULT_FEATURE_LIST)
-
-		if status == 'c':
-			self.with_header = False
-		elif status == 'i':
-			self.with_header = True
-		else:
-			raise SystemInputError('系統參數請輸入: c -> 續寫, i -> 從頭開始執行')
 
 	@timeit
 	def get_rows(self, goods_icode, look_num, label, price):
@@ -56,33 +46,21 @@ class momo(object):
 		time.sleep(1)
 		h = requests.get(web, headers=HEADER, cookies=COOKIES)
 		soup = BeautifulSoup(h.text, 'html.parser')
-		print('-------------------------')
-		print('洗衣精的columns長度應是：', len(DETERGENT_FEATURE_LIST))
-		print(DETERGENT_FEATURE_LIST)
-		print('沐浴乳的columns長度應是：', len(BODYWASH_FEATURE_LIST))
-		print(BODYWASH_FEATURE_LIST)
-		print('精華液的columns長度應是：', len(ESSENCE_FEATURE_LIST))
-		print(ESSENCE_FEATURE_LIST)
-		print('-------------------------')
-
+		
 		row_list = list()
 		row_list.append(goods_icode)
-		row_list.append(price)
-		row_list.append(discount(soup))
 		row_list += payment(soup) # 5維 ['信用卡','貨到付款', '超商付款', 'ATM', 'iBon'] 
-		row_list.append(preferentialCount(soup))
 		img_result_list = image_analysis(soup)
 		row_list.append(img_result_list[0]) # 圖片共5維
 		row_list += img_result_list[1]
 		row_list += img_result_list[2]
 		row_list += transport(soup)
-		row_list.append(productFormatCount(soup))
-		row_list.append(attributesListArea(soup))
 		row_list.append(haveVideo(soup))
-		row_list += origin(soup)
+		row_list.append(origin(soup))
 		row_list += unit(soup)
 		row_list.append(look_num)
 		row_list.append(label)
+		print(row_list)
 		return row_list
 
 
@@ -103,20 +81,15 @@ class momo(object):
 		for row in gid_list:
 			print('---------------------------')
 			requests_count += 1
-			print((str(int(row[0])), row[1]))
+			print('現在在爬的GID:', str(int(row[0])), '   要塞入的獲選率:',row[1])
 			try:
 				# get_rows 要傳入的 goods_icode, look_num, label
-				# gid,cr,look,price
+				# gid, cr, look, price
 				self.result_df.loc[0] = self.get_rows(str(int(row[0])), row[2], row[1], row[3])
-				if first_write and self.with_header:
-					self.result_df.to_csv(output_file_name, mode='a', index=False)
-					first_write = False
-					self.with_header = False
-				else:
-					self.result_df.to_csv(output_file_name, mode='a', index=False, header=False)
+				self.result_df.to_csv(output_file_name, index=False)
 				successful += 1
-				print(('已requests數: ', requests_count))
-				print(('已有資料筆數: ', successful))
+				print('已requests數: ', requests_count)
+				print('已有資料筆數: ', successful)
 
 			except Exception as e:
 				abandoned += 1
@@ -124,37 +97,49 @@ class momo(object):
 				traceback.print_exc()
 				if str(e) == "'NoneType' object has no attribute 'find'":
 					no_page_count += 1
-				print(('已requests數: ', requests_count))
-				print(('已有資料筆數: ', successful))
+				print('已requests數: ', requests_count)
+				print('已有資料筆數: ', successful)
 				continue
 
-		print(('處理失敗總數量: ', abandoned))
-		print(('無頁面總數量: ', no_page_count))
+		print('處理失敗總數量: ', abandoned)
+		print('無頁面總數量: ', no_page_count)
 
 		_drop_column_by_category(output_file_name)
 	
 	def _drop_column_by_category(self, output_file_name):
 		df = pd.read_csv(output_file_name)
-		print(df)
+		print(df.shape)
 		if self.product_type == 'd':
-			df.drop
+			df = df.drop(['payment_credit_card', 'payment_arrival', 'payment_convenience_store', 'payment_ATM', 'payment_iBon'], axis=1)
+			print(df.shape)
+			df.to_csv('detergent_output.csv', index=False)
 		elif self.product_type == 'b':
 			pass
 		elif self.product_type == 'e':
-			pass
+			df = df.drop(['payment_credit_card', 'payment_arrival', 'payment_convenience_store', 'payment_ATM', 'payment_iBon'], axis=1)
+			print(df.shape)
+			df.to_csv('detergent_output.csv', index=False)
 		
 
 
 if __name__ == '__main__':
+	"""
+	- arg1 : d: detergent(洗衣精)、b: bodywash(沐浴乳)、e: essense(精華液)
+	- arg2 : 輸入檔名（輸入檔格式參考create_csv函式的註解）
+	- arg3 : 輸出檔名
+	"""
 	import time
 	import sys
 	
-	# obj = momo(sys.argv[1], sys.argv[4])
-	obj = momo('i', 'd')
+	# obj = momo(argv[1])
+	obj = momo('d')
 	# start = time.time()
+	
+	# obj.create_csv('example_input.csv', 'example_output.csv')
+	obj._drop_column_by_category('example_output.csv')
+	
 	# obj.create_csv(sys.argv[2], sys.argv[3])
-	# obj.create_csv('testing_data.csv', 'temp.csv')
-	obj._drop_column_by_category('./temp.csv')
+	# obj._drop_column_by_category('./temp.csv')
 	# end = time.time()
 
 	# time_cost = end - start
